@@ -1,0 +1,28 @@
+# Python cache & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+.pytest_cache/
+
+# Large capture files (>50MB)
+captures/gps.pcapng
+*.pcapng
+
+# Database backups
+*.db.backup
+*.backup
+*.old
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.log

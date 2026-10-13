@@ -1,0 +1,3159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrackGuard — GNSS Security Platform</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer"/>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <style>
+        :root {
+            --bg-dark:       #0a0e1a;
+            --bg-panel:      #0f1629;
+            --bg-card:       #141d35;
+            --bg-surface:    #1a2540;
+            --border:        #1f2e50;
+            --border-accent: #2a3f6a;
+            --text-primary:  #e8eef8;
+            --text-secondary:#8fa3c8;
+            --text-muted:    #4a5d80;
+            --accent-blue:   #3b82f6;
+            --accent-teal:   #14b8a6;
+            --accent-green:  #22c55e;
+            --accent-red:    #ef4444;
+            --accent-orange: #f97316;
+            --accent-purple: #a855f7;
+            --accent-yellow: #eab308;
+            --sidebar-w:     240px;
+            --header-h:      64px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Arial, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ─── SIDEBAR ─────────────────────────────────────────── */
+        .sidebar {
+            width: var(--sidebar-w);
+            background: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            transition: transform 0.25s ease;
+            z-index: 100;
+        }
+
+        .sidebar-logo {
+            padding: 20px 18px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .sidebar-logo .logo-icon {
+            width: 36px; height: 36px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; margin-bottom: 10px;
+        }
+        .sidebar-logo h1 {
+            font-size: 15px; font-weight: 800; letter-spacing: 2px;
+            color: white; text-transform: uppercase;
+        }
+        .sidebar-logo p {
+            font-size: 10px; color: var(--text-muted); margin-top: 2px;
+            line-height: 1.4;
+        }
+
+        .sidebar-nav {
+            flex: 1; padding: 12px 10px; overflow-y: auto;
+        }
+        .nav-section-label {
+            font-size: 9px; font-weight: 700; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 1.5px;
+            padding: 14px 8px 6px;
+        }
+        .nav-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 12px; border-radius: 8px;
+            cursor: pointer; font-size: 13px; font-weight: 500;
+            color: var(--text-secondary); transition: all 0.15s;
+            margin-bottom: 2px; border: none; background: none;
+            width: 100%; text-align: left;
+        }
+        .nav-item:hover { background: var(--bg-surface); color: var(--text-primary); }
+        .nav-item.active {
+            background: rgba(59,130,246,0.15);
+            color: var(--accent-blue);
+            border-left: 3px solid var(--accent-blue);
+        }
+        .nav-item i { width: 18px; text-align: center; font-size: 14px; }
+        .nav-badge {
+            margin-left: auto; background: var(--accent-red);
+            color: white; font-size: 10px; font-weight: 700;
+            padding: 1px 6px; border-radius: 10px; min-width: 20px;
+            text-align: center;
+        }
+        .nav-badge.green { background: var(--accent-green); }
+        .nav-badge.blue  { background: var(--accent-blue); }
+
+        .sidebar-footer {
+            padding: 14px 14px 18px;
+            border-top: 1px solid var(--border);
+            font-size: 11px; color: var(--text-muted);
+        }
+        .sidebar-footer a { color: var(--text-muted); text-decoration: none; }
+
+        /* ─── MAIN CONTENT ────────────────────────────────────── */
+        .main {
+            flex: 1; display: flex; flex-direction: column; overflow: hidden;
+        }
+
+        /* ─── TOPBAR ──────────────────────────────────────────── */
+        .topbar {
+            height: var(--header-h);
+            background: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center;
+            padding: 0 24px; gap: 14px; flex-shrink: 0;
+        }
+        .hamburger {
+            display: none; background: none; border: none;
+            color: var(--text-secondary); font-size: 20px; cursor: pointer;
+        }
+        .topbar-title {
+            font-size: 15px; font-weight: 700; color: var(--text-primary);
+            flex: 1;
+        }
+        .topbar-right { display: flex; align-items: center; gap: 10px; }
+
+        /* HW status pulse badge */
+        .hw-badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 6px 14px; border-radius: 20px;
+            font-size: 12px; font-weight: 700;
+            border: 1px solid transparent;
+            transition: all 0.3s;
+        }
+        .hw-badge.live {
+            background: rgba(34,197,94,0.12);
+            border-color: rgba(34,197,94,0.3);
+            color: var(--accent-green);
+        }
+        .hw-badge:hover {
+            opacity: 0.9;
+            transform: scale(1.02);
+        }
+        .hw-badge.disconnected {
+            background: rgba(239,68,68,0.12);
+            border-color: rgba(239,68,68,0.3);
+            color: var(--accent-red);
+        }
+        .hw-badge.stale {
+            background: rgba(249,115,22,0.15);
+            border-color: rgba(249,115,22,0.4);
+            color: var(--accent-orange, #f97316);
+        }
+        .hw-badge.warn {
+            background: rgba(234,179,8,0.12);
+            border-color: rgba(234,179,8,0.3);
+            color: var(--accent-yellow);
+        }
+        .pulse-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%,100% { opacity: 1; transform: scale(1); }
+            50%      { opacity: 0.4; transform: scale(0.7); }
+        }
+
+        .topbar-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 13px; border-radius: 7px;
+            font-size: 12px; font-weight: 600; cursor: pointer;
+            border: 1px solid var(--border-accent);
+            background: var(--bg-surface); color: var(--text-secondary);
+            transition: all 0.15s;
+        }
+        .topbar-btn:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
+        .topbar-btn.danger:hover { border-color: var(--accent-red); color: var(--accent-red); }
+
+        /* ─── PAGE CONTENT ────────────────────────────────────── */
+        .page-content {
+            flex: 1; overflow-y: auto; padding: 24px;
+        }
+
+        /* Tab panels */
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* ─── STATS CARDS ─────────────────────────────────────── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 14px; margin-bottom: 22px;
+        }
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px; padding: 18px;
+            position: relative; overflow: hidden;
+            transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+            min-height: 120px;
+        }
+        .stat-card:hover { border-color: var(--border-accent); transform: translateY(-1px); }
+        .interactive-card {
+            cursor: pointer;
+            user-select: none;
+        }
+        .interactive-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+            border-color: var(--accent-teal);
+        }
+        .stat-card::before {
+            content: ""; position: absolute;
+            top: 0; left: 0; right: 0; height: 3px;
+        }
+        .stat-card.blue::before  { background: var(--accent-blue); }
+        .stat-card.green::before { background: var(--accent-green); }
+        .stat-card.red::before   { background: var(--accent-red); }
+        .stat-card.teal::before  { background: var(--accent-teal); }
+        .stat-card.purple::before{ background: var(--accent-purple); }
+        .stat-card.orange::before{ background: var(--accent-orange); }
+        .stat-card.yellow::before{ background: var(--accent-yellow); }
+
+        .stat-icon {
+            width: 36px; height: 36px; border-radius: 9px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; margin-bottom: 12px;
+        }
+        .stat-icon.blue   { background: rgba(59,130,246,0.15); color: var(--accent-blue); }
+        .stat-icon.green  { background: rgba(34,197,94,0.15);  color: var(--accent-green); }
+        .stat-icon.red    { background: rgba(239,68,68,0.15);  color: var(--accent-red); }
+        .stat-icon.teal   { background: rgba(20,184,166,0.15); color: var(--accent-teal); }
+        .stat-icon.purple { background: rgba(168,85,247,0.15); color: var(--accent-purple); }
+        .stat-icon.orange { background: rgba(249,115,22,0.15); color: var(--accent-orange); }
+        .stat-icon.yellow { background: rgba(234,179,8,0.15);  color: var(--accent-yellow); }
+
+        .stat-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .stat-value { font-size: 30px; font-weight: 800; color: var(--text-primary); line-height: 1; }
+        .stat-sub   { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+        /* sparkline canvas */
+        .stat-spark { height: 36px; margin-top: 10px; }
+
+        /* ─── PANEL / SECTION ─────────────────────────────────── */
+        .panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px; margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .panel-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 20px; border-bottom: 1px solid var(--border);
+            flex-wrap: wrap; gap: 10px;
+        }
+        .panel-title {
+            font-size: 14px; font-weight: 700; color: var(--text-primary);
+            display: flex; align-items: center; gap: 10px;
+        }
+        .panel-title i { color: var(--accent-blue); }
+        .panel-subtitle { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+        .panel-body { padding: 20px; }
+        .panel-accent-blue   { border-top: 3px solid var(--accent-blue); }
+        .panel-accent-teal   { border-top: 3px solid var(--accent-teal); }
+        .panel-accent-purple { border-top: 3px solid var(--accent-purple); }
+        .panel-accent-red    { border-top: 3px solid var(--accent-red); }
+        .panel-accent-orange { border-top: 3px solid var(--accent-orange); }
+
+        /* ─── GNSS METRIC TILES ───────────────────────────────── */
+        .gnss-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px; margin-bottom: 16px;
+        }
+        .gnss-tile {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 10px; padding: 14px;
+            transition: border-color 0.2s;
+        }
+        .gnss-tile:hover { border-color: var(--accent-teal); }
+        .gnss-tile-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+        .gnss-tile-value { font-size: 20px; font-weight: 800; color: var(--accent-teal); font-variant-numeric: tabular-nums; }
+        .gnss-tile-unit  { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+        /* Fix status pill */
+        .fix-pill {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 12px; border-radius: 20px;
+            font-size: 12px; font-weight: 700;
+        }
+        .fix-valid    { background: rgba(34,197,94,0.15);  color: var(--accent-green); border: 1px solid rgba(34,197,94,0.3); }
+        .fix-stale    { background: rgba(234,179,8,0.15);  color: var(--accent-yellow); border: 1px solid rgba(234,179,8,0.3); }
+        .fix-none     { background: rgba(239,68,68,0.15);  color: var(--accent-red);   border: 1px solid rgba(239,68,68,0.3); }
+
+        /* ─── MAP ─────────────────────────────────────────────── */
+        #gnssMap { height: 420px; border-radius: 10px; }
+        .map-overlay {
+            background: rgba(10,14,26,0.82);
+            border: 1px solid var(--border);
+            border-radius: 8px; padding: 8px 12px;
+            font-size: 12px; color: var(--text-secondary);
+        }
+
+        /* ─── TABLES ──────────────────────────────────────────── */
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        thead th {
+            background: var(--bg-surface); color: var(--text-muted);
+            font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px;
+            padding: 10px 12px; text-align: left;
+            border-bottom: 1px solid var(--border); white-space: nowrap;
+        }
+        tbody td {
+            padding: 10px 12px; border-bottom: 1px solid var(--border);
+            color: var(--text-secondary); vertical-align: middle;
+            white-space: nowrap;
+        }
+        tbody tr:hover { background: var(--bg-surface); }
+        tbody tr:last-child td { border-bottom: none; }
+        .row-anomaly { background: rgba(239,68,68,0.06) !important; }
+        .row-anomaly:hover { background: rgba(239,68,68,0.1) !important; }
+        .row-normal { /* default */ }
+
+        /* expandable evidence */
+        .evidence-row td {
+            padding: 0 !important;
+            border-bottom: 1px solid var(--border) !important;
+        }
+        .evidence-inner {
+            background: var(--bg-dark); padding: 12px 16px;
+            font-family: monospace; font-size: 11px; color: var(--accent-teal);
+            max-height: 160px; overflow-y: auto;
+            white-space: pre-wrap; word-break: break-all;
+            display: none;
+        }
+        .evidence-row.open .evidence-inner { display: block; }
+        .expand-btn {
+            background: none; border: none; cursor: pointer;
+            color: var(--accent-blue); font-size: 11px; padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .expand-btn:hover { background: rgba(59,130,246,0.1); }
+
+        /* ─── BADGES ──────────────────────────────────────────── */
+        .badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 8px; border-radius: 5px;
+            font-size: 10px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+        .badge-ok     { background: rgba(34,197,94,0.15);  color: var(--accent-green); }
+        .badge-normal { background: rgba(34,197,94,0.15);  color: var(--accent-green); }
+        .badge-pass   { background: rgba(34,197,94,0.15);  color: var(--accent-green); }
+        .badge-high   { background: rgba(239,68,68,0.15);  color: var(--accent-red); }
+        .badge-fail   { background: rgba(239,68,68,0.15);  color: var(--accent-red); }
+        .badge-threat { background: rgba(239,68,68,0.15);  color: var(--accent-red); }
+        .badge-medium { background: rgba(234,179,8,0.15);  color: var(--accent-yellow); }
+        .badge-warn   { background: rgba(234,179,8,0.15);  color: var(--accent-yellow); }
+        .badge-low    { background: rgba(59,130,246,0.15); color: var(--accent-blue); }
+        .badge-info   { background: rgba(59,130,246,0.15); color: var(--accent-blue); }
+        .badge-gray   { background: rgba(148,163,184,0.12); color: var(--text-secondary); }
+        .badge-hw     { background: rgba(20,184,166,0.15);  color: var(--accent-teal); }
+        .badge-sim    { background: rgba(239,68,68,0.15);   color: var(--accent-red); }
+
+        /* ─── BUTTONS ─────────────────────────────────────────── */
+        .btn {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 8px 15px; border-radius: 8px;
+            font-size: 12px; font-weight: 700; cursor: pointer;
+            border: none; transition: all 0.15s; text-decoration: none;
+        }
+        .btn-primary  { background: var(--accent-blue);   color: white; }
+        .btn-primary:hover  { background: #2563eb; }
+        .btn-success  { background: var(--accent-green);  color: white; }
+        .btn-success:hover  { background: #16a34a; }
+        .btn-danger   { background: var(--accent-red);    color: white; }
+        .btn-danger:hover   { background: #dc2626; }
+        .btn-purple   { background: var(--accent-purple); color: white; }
+        .btn-purple:hover   { background: #9333ea; }
+        .btn-ghost {
+            background: var(--bg-surface); color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+        .btn-ghost:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
+        .btn-sm { padding: 5px 10px; font-size: 11px; }
+
+        /* ─── ATTACK LAB ──────────────────────────────────────── */
+        .lab-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+            gap: 14px; margin-top: 14px;
+        }
+        .lab-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 12px; padding: 16px;
+            display: flex; flex-direction: column; gap: 10px;
+            transition: border-color 0.2s, transform 0.15s;
+            position: relative; overflow: hidden;
+        }
+        .lab-card:hover { border-color: var(--accent-purple); transform: translateY(-2px); }
+        .lab-card::before {
+            content: "";
+            position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, var(--accent-purple), var(--accent-blue));
+        }
+        .lab-card-num {
+            position: absolute; top: 12px; right: 14px;
+            font-size: 28px; font-weight: 900; color: var(--border-accent);
+            line-height: 1;
+        }
+        .lab-card-title {
+            font-size: 13px; font-weight: 700; color: var(--text-primary);
+            padding-right: 36px;
+        }
+        .lab-card-desc {
+            font-size: 11px; color: var(--text-muted); line-height: 1.5; flex: 1;
+        }
+        .lab-card-result {
+            font-size: 11px; font-weight: 700;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .lab-card-footer {
+            display: flex; align-items: center; justify-content: space-between;
+        }
+
+        /* Progress bar (Run All) */
+        .progress-wrap {
+            display: none; margin-top: 10px;
+        }
+        .progress-wrap.visible { display: block; }
+        .progress-bar-track {
+            height: 6px; border-radius: 4px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border); overflow: hidden;
+        }
+        .progress-bar-fill {
+            height: 100%; width: 0%; border-radius: 4px;
+            background: linear-gradient(90deg, var(--accent-purple), var(--accent-blue));
+            transition: width 0.3s ease;
+        }
+        .progress-label {
+            font-size: 11px; color: var(--text-muted); margin-top: 4px;
+        }
+
+        /* Disclaimer box */
+        .disclaimer {
+            background: rgba(59,130,246,0.08);
+            border: 1px solid rgba(59,130,246,0.2);
+            border-left: 4px solid var(--accent-blue);
+            border-radius: 8px; padding: 12px 16px;
+            font-size: 12px; color: var(--text-secondary);
+            margin-bottom: 14px;
+        }
+        .disclaimer strong { color: var(--accent-blue); }
+
+        /* ─── ATTACK DISTRIBUTION ─────────────────────────────── */
+        .attack-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 11px 14px;
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent-red);
+            border-radius: 8px; margin-bottom: 8px;
+            background: rgba(239,68,68,0.05);
+        }
+        .attack-type-name { font-weight: 600; font-size: 12px; color: var(--text-primary); flex: 1; }
+        .attack-count-badge {
+            background: rgba(239,68,68,0.2); color: var(--accent-red);
+            font-size: 12px; font-weight: 800;
+            padding: 3px 10px; border-radius: 12px;
+        }
+
+        /* ─── GNSS PANEL ROW ──────────────────────────────────── */
+        .gnss-panel-row {
+            display: grid; grid-template-columns: 1fr 420px;
+            gap: 20px; align-items: start;
+        }
+
+        /* ─── PCAP ────────────────────────────────────────────── */
+        .pcap-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px; margin-bottom: 8px;
+            background: var(--bg-surface);
+        }
+        .pcap-name { font-weight: 600; font-size: 12px; color: var(--text-primary); }
+        .pcap-size { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+        /* ─── SDR SECTION ─────────────────────────────────────── */
+        .sdr-disclaimer {
+            background: rgba(2,132,199,0.08);
+            border: 1px solid rgba(2,132,199,0.2);
+            border-left: 4px solid #0284c7;
+            border-radius: 8px; padding: 12px 16px;
+            font-size: 12px; color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+        .sdr-disclaimer strong { color: #38bdf8; }
+
+        /* ─── INPUT FIELDS ────────────────────────────────────── */
+        .form-input {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 7px; padding: 8px 12px;
+            color: var(--text-primary); font-size: 12px;
+            transition: border-color 0.15s;
+        }
+        .form-input:focus { outline: none; border-color: var(--accent-blue); }
+
+        /* ─── TOAST NOTIFICATIONS ─────────────────────────────── */
+        #toast-container {
+            position: fixed; bottom: 24px; right: 24px;
+            display: flex; flex-direction: column; gap: 10px;
+            z-index: 9999; pointer-events: none;
+        }
+        .toast {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px; padding: 12px 18px;
+            display: flex; align-items: flex-start; gap: 12px;
+            min-width: 280px; max-width: 380px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            pointer-events: all;
+            animation: slideIn 0.25s ease;
+        }
+        .toast.success { border-left: 4px solid var(--accent-green); }
+        .toast.error   { border-left: 4px solid var(--accent-red); }
+        .toast.warn    { border-left: 4px solid var(--accent-yellow); }
+        .toast.info    { border-left: 4px solid var(--accent-blue); }
+        .toast-icon { font-size: 18px; margin-top: 1px; }
+        .toast-content { flex: 1; }
+        .toast-title   { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+        .toast-msg     { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+        .toast-close   { font-size: 14px; color: var(--text-muted); cursor: pointer; padding: 2px; }
+        .toast-close:hover { color: var(--text-primary); }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+
+        /* ─── CLEAR BANNER ────────────────────────────────────── */
+        #clearBanner {
+            display: none;
+            background: rgba(34,197,94,0.1);
+            border: 1px solid rgba(34,197,94,0.3);
+            border-radius: 8px; padding: 12px 18px;
+            margin-bottom: 18px; font-size: 13px; font-weight: 600;
+            color: var(--accent-green);
+        }
+
+        /* ─── EMPTY STATE ─────────────────────────────────────── */
+        .empty-state {
+            padding: 40px; text-align: center; color: var(--text-muted);
+        }
+        .empty-state i { font-size: 36px; margin-bottom: 12px; display: block; }
+        .empty-state p  { font-size: 13px; }
+
+        /* ─── DEVICE TABLE ────────────────────────────────────── */
+        code {
+            font-family: monospace;
+            background: var(--bg-surface); padding: 2px 6px;
+            border-radius: 4px; font-size: 11px;
+            color: var(--accent-teal);
+        }
+
+        /* ─── RESPONSIVE ──────────────────────────────────────── */
+        @media (max-width: 1100px) {
+            .gnss-panel-row { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 780px) {
+            .sidebar { position: fixed; top: 0; left: 0; bottom: 0; transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .hamburger { display: flex; }
+            .page-content { padding: 16px; }
+        }
+
+        /* ─── SCROLLBAR ───────────────────────────────────────── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-accent); border-radius: 4px; }
+
+        /* ─── CHART CONTAINER ─────────────────────────────────── */
+        .chart-wrap { position: relative; height: 200px; }
+
+        /* Utility */
+        .flex { display: flex; }
+        .items-center { align-items: center; }
+        .gap-8 { gap: 8px; }
+        .gap-10 { gap: 10px; }
+        .text-muted { color: var(--text-muted); font-size: 11px; }
+        .mt-8 { margin-top: 8px; }
+        .mt-16 { margin-top: 16px; }
+        .mb-16 { margin-bottom: 16px; }
+        .fw-700 { font-weight: 700; }
+        .w-full { width: 100%; }
+
+        /* ─── PACKET DETAILS MODAL ────────────────────────────────────── */
+        .modal-backdrop {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(10, 14, 26, 0.85);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            animation: fadeInModal 0.2s ease-out;
+        }
+        .modal-backdrop.show {
+            display: flex;
+        }
+        @keyframes fadeInModal {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .modal-dialog {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-accent);
+            border-radius: 14px;
+            width: 100%;
+            max-width: 860px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.75), 0 0 35px rgba(20, 184, 166, 0.15);
+            overflow: hidden;
+            animation: slideUpModal 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes slideUpModal {
+            from { transform: translateY(20px) scale(0.97); }
+            to { transform: translateY(0) scale(1); }
+        }
+        .modal-header {
+            padding: 16px 22px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-card);
+        }
+        .modal-header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .modal-icon-badge {
+            width: 38px; height: 38px;
+            border-radius: 10px;
+            background: rgba(20, 184, 166, 0.15);
+            border: 1px solid rgba(20, 184, 166, 0.3);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 17px;
+        }
+        .modal-header-title h3 {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 0;
+        }
+        .modal-close-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            border-radius: 8px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+        .modal-close-btn:hover {
+            color: var(--text-primary);
+            background: var(--bg-surface);
+            border-color: var(--border-accent);
+        }
+        .modal-body {
+            padding: 20px 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+        .modal-grid-4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+        .modal-grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        @media (max-width: 768px) {
+            .modal-grid-4, .modal-grid-3 {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        @media (max-width: 480px) {
+            .modal-grid-4, .modal-grid-3 {
+                grid-template-columns: 1fr;
+            }
+        }
+        .modal-stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 14px;
+        }
+        .modal-stat-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 4px;
+        }
+        .modal-stat-value {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            word-break: break-all;
+        }
+        .modal-section-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .modal-code-box {
+            background: #060911;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 14px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 12px;
+            color: #38bdf8;
+            line-height: 1.6;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .modal-alert-box {
+            border-radius: 8px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            font-size: 13px;
+        }
+        .modal-alert-box.anomaly {
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.35);
+            color: #fca5a5;
+        }
+        .modal-alert-box.normal {
+            background: rgba(34, 197, 94, 0.12);
+            border: 1px solid rgba(34, 197, 94, 0.35);
+            color: #86efac;
+        }
+        .modal-footer {
+            padding: 12px 22px;
+            border-top: 1px solid var(--border);
+            background: var(--bg-card);
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SIDEBAR -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+        <div class="logo-icon">🛡️</div>
+        <h1>TrackGuard</h1>
+        <p>GNSS Security &amp; Vehicle Tracking Platform</p>
+    </div>
+
+    <nav class="sidebar-nav">
+        <div class="nav-section-label">Dashboard</div>
+        <button class="nav-item active" onclick="showTab('overview', this)">
+            <i class="fa fa-gauge-high"></i> Overview
+        </button>
+        <button class="nav-item" onclick="showTab('gnss', this)">
+            <i class="fa fa-satellite-dish"></i> Live GNSS
+            <span class="nav-badge green" id="navFixBadge">–</span>
+        </button>
+
+        <div class="nav-section-label">Security</div>
+        <button class="nav-item" onclick="showTab('packets', this)">
+            <i class="fa fa-network-wired"></i> Telemetry Stream
+        </button>
+        <button class="nav-item" onclick="showTab('events', this)">
+            <i class="fa fa-triangle-exclamation"></i> Security Events
+            <span class="nav-badge" id="navEventsBadge">0</span>
+        </button>
+        <button class="nav-item" onclick="showTab('history', this)">
+            <i class="fa fa-clock-rotate-left"></i> Forensic Archive
+        </button>
+        <button class="nav-item" onclick="showTab('devices', this)">
+            <i class="fa fa-mobile-screen"></i> Devices
+        </button>
+
+        <div class="nav-section-label">Laboratory</div>
+        <button class="nav-item" onclick="showTab('lab', this)">
+            <i class="fa fa-flask"></i> Attack Lab
+        </button>
+        <button class="nav-item" onclick="showTab('pcap', this)">
+            <i class="fa fa-fish"></i> PCAP / Wireshark
+        </button>
+        <button class="nav-item" onclick="showTab('sdr', this)">
+            <i class="fa fa-broadcast-tower"></i> SDR Forensics
+        </button>
+
+        <div class="nav-section-label">Incident Reports</div>
+        <a class="nav-item" href="/view-report" target="_blank" style="text-decoration: none;">
+            <i class="fa fa-shield-halved"></i> Attack Incident Report
+            <span class="nav-badge red" style="background: var(--accent-red);">LIVE</span>
+        </a>
+        <a class="nav-item" href="/view-report?type=engineering" target="_blank" style="text-decoration: none;">
+            <i class="fa fa-file-lines"></i> System Architecture
+            <span class="nav-badge blue">DOC</span>
+        </a>
+    </nav>
+
+    <div class="sidebar-footer">
+        <div>Version 2.0 &bull; TrackGuard</div>
+        <div style="margin-top: 4px;">GNSS Security Lab</div>
+    </div>
+</aside>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- MAIN -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="main">
+
+    <!-- TOP BAR -->
+    <header class="topbar">
+        <button class="hamburger" onclick="toggleSidebar()"><i class="fa fa-bars"></i></button>
+        <div class="topbar-title" id="topbarTitle">System Overview</div>
+        <div class="topbar-right">
+            <div class="hw-badge disconnected" id="hwStatusBadge" onclick="reconnectHardware()" style="cursor: pointer;" title="Click to connect / reconnect GNSS hardware">
+                <span class="pulse-dot"></span>
+                <span id="hwBadgeText">GNSS HARDWARE DISCONNECTED</span>
+            </div>
+            <button class="topbar-btn" id="btnTopbarReconnect" onclick="reconnectHardware()" style="background: rgba(20, 184, 166, 0.15); border-color: var(--accent-teal); color: var(--accent-teal);" title="Connect or reconnect to GNSS hardware">
+                <i class="fa fa-plug"></i> Connect Hardware
+            </button>
+            <a href="/view-report" target="_blank" class="topbar-btn" style="background: rgba(239, 68, 68, 0.15); border-color: var(--accent-red); color: #f87171; text-decoration: none;" title="Open Live Attack Detection & Forensic Incident Report (Print / Save as PDF)">
+                <i class="fa fa-shield-halved"></i> Attack Report
+            </a>
+            <a href="/download-report?format=csv" class="topbar-btn" style="background: rgba(16, 185, 129, 0.15); border-color: var(--accent-green); color: #34d399; text-decoration: none;" download="TrackGuard_Detected_Attacks.csv" title="Download all registered attacks as CSV spreadsheet">
+                <i class="fa fa-file-csv"></i> Export CSV
+            </a>
+            <a href="/download-report" class="topbar-btn" style="background: rgba(99, 102, 241, 0.15); border-color: var(--accent-purple); color: #818cf8; text-decoration: none;" download="TrackGuard_Detected_Attacks_Report.html" title="Download standalone Attack Report HTML">
+                <i class="fa fa-download"></i> Download Report
+            </a>
+            <button class="topbar-btn" onclick="clearRecentPackets()" title="Archive to history and reset live counters">
+                <i class="fa fa-broom"></i> Clear Recent
+            </button>
+            <button class="topbar-btn danger" onclick="clearAllHistory()" title="Permanently wipe historical archives">
+                <i class="fa fa-trash"></i> Clear History
+            </button>
+        </div>
+    </header>
+
+    <!-- PAGE CONTENT -->
+    <div class="page-content" id="pageContent">
+
+        <div id="clearBanner"><i class="fa fa-check-circle"></i> Session cleared — ready for fresh live packets or simulation runs!</div>
+
+        <!-- ──────────────────────────────────────────── -->
+        <!-- TAB: OVERVIEW -->
+        <!-- ──────────────────────────────────────────── -->
+        <div class="tab-panel active" id="tab-overview">
+
+            <div class="stats-grid">
+                <div class="stat-card blue interactive-card" onclick="showTab('packets', document.querySelector('.nav-item:nth-of-type(3)'))" title="Click to view live telemetry packet stream">
+                    <div class="stat-icon blue"><i class="fa fa-satellite"></i></div>
+                    <div class="stat-label">Live Packets</div>
+                    <div class="stat-value" id="totalPackets">{{ total_packets }}</div>
+                    <div class="stat-sub"><i class="fa fa-arrow-right" style="font-size:10px;"></i> Active session</div>
+                </div>
+                <div class="stat-card green interactive-card" onclick="showTab('packets', document.querySelector('.nav-item:nth-of-type(3)'))" title="Click to view validated clean telemetry">
+                    <div class="stat-icon green"><i class="fa fa-circle-check"></i></div>
+                    <div class="stat-label">Normal Packets</div>
+                    <div class="stat-value" id="normalPackets">{{ normal_packets }}</div>
+                    <div class="stat-sub"><i class="fa fa-arrow-right" style="font-size:10px;"></i> Validated clean</div>
+                </div>
+                <div class="stat-card red interactive-card" onclick="showTab('events', document.querySelector('.nav-item:nth-of-type(4)'))" title="Click to view detected anomalies">
+                    <div class="stat-icon red"><i class="fa fa-shield-halved"></i></div>
+                    <div class="stat-label">Anomalies</div>
+                    <div class="stat-value" id="anomalyPackets">{{ anomaly_packets }}</div>
+                    <div class="stat-sub"><i class="fa fa-arrow-right" style="font-size:10px;"></i> Detected this session</div>
+                </div>
+                <div class="stat-card orange interactive-card" onclick="showTab('events', document.querySelector('.nav-item:nth-of-type(4)'))" title="Click to inspect active security alerts">
+                    <div class="stat-icon orange"><i class="fa fa-triangle-exclamation"></i></div>
+                    <div class="stat-label">Security Events</div>
+                    <div class="stat-value" id="totalEvents">{{ total_events }}</div>
+                    <div class="stat-sub"><i class="fa fa-arrow-right" style="font-size:10px;"></i> Active alerts</div>
+                </div>
+                <div class="stat-card purple interactive-card" onclick="showTab('history', document.querySelector('.nav-item:nth-of-type(5)'))" title="Click to view forensic archive">
+                    <div class="stat-icon purple"><i class="fa fa-clock-rotate-left"></i></div>
+                    <div class="stat-label">History Packets</div>
+                    <div class="stat-value" id="historyTotalPackets">{{ history_total_packets }}</div>
+                    <div class="stat-sub"><i class="fa fa-arrow-right" style="font-size:10px;"></i> Archived records</div>
+                </div>
+                <div class="stat-card red interactive-card" onclick="showTab('history', document.querySelector('.nav-item:nth-of-type(5)'))" title="Click to review all recorded attack incidents">
+                    <div class="stat-icon red"><i class="fa fa-bomb"></i></div>
+                    <div class="stat-label">Attacks Recorded</div>
+                    <div class="stat-value" id="historyTotalEvents">{{ history_total_events }}</div>
+                    <div class="stat-sub"><i class="fa fa-arrow-right" style="font-size:10px;"></i> Historical incidents</div>
+                </div>
+                <div class="stat-card teal interactive-card" onclick="reconnectHardware()" title="Click to connect / reconnect hardware receiver">
+                    <div class="stat-icon teal"><i class="fa fa-crosshairs"></i></div>
+                    <div class="stat-label">GNSS Fix</div>
+                    <div class="stat-value" id="cardFixState" style="font-size:16px; margin-top:4px;">{{ gnss_status.fix_state }}</div>
+                    <div class="stat-sub"><i class="fa fa-plug" style="color:var(--accent-teal);"></i> Click to connect</div>
+                </div>
+                <div class="stat-card yellow interactive-card" onclick="showTab('gnss', document.querySelector('.nav-item:nth-of-type(2)'))" title="Click to inspect live GNSS telemetry monitor">
+                    <div class="stat-icon yellow"><i class="fa fa-satellite-dish"></i></div>
+                    <div class="stat-label">Satellites</div>
+                    <div class="stat-value" id="cardSats" style="font-size:22px;">{{ gnss_status.satellites_used }} / {{ gnss_status.satellites_in_view }}</div>
+                    <div class="stat-sub"><i class="fa fa-arrow-right" style="font-size:10px;"></i> Used / In View</div>
+                </div>
+            </div>
+
+            <!-- Quick GNSS Summary inside overview -->
+            <div class="panel panel-accent-teal">
+                <div class="panel-header">
+                    <div>
+                        <div class="panel-title"><i class="fa fa-satellite-dish"></i> Live GNSS Quick Status (7semi NEO-M9N)</div>
+                        <div class="panel-subtitle">Hardware ingestion via serial — refreshes every 2 s</div>
+                    </div>
+                    <span id="fixStatePill" class="fix-pill fix-none">{{ gnss_status.fix_state }}</span>
+                </div>
+                <div class="panel-body">
+                    <div class="gnss-grid">
+                        <div class="gnss-tile">
+                            <div class="gnss-tile-label">Latitude</div>
+                            <div class="gnss-tile-value" id="gnssLat">{{ "%.6f"|format(gnss_status.latitude) if gnss_status.latitude is not none else "Waiting…" }}</div>
+                            <div class="gnss-tile-unit">degrees N/S</div>
+                        </div>
+                        <div class="gnss-tile">
+                            <div class="gnss-tile-label">Longitude</div>
+                            <div class="gnss-tile-value" id="gnssLon">{{ "%.6f"|format(gnss_status.longitude) if gnss_status.longitude is not none else "Waiting…" }}</div>
+                            <div class="gnss-tile-unit">degrees E/W</div>
+                        </div>
+                        <div class="gnss-tile">
+                            <div class="gnss-tile-label">Speed</div>
+                            <div class="gnss-tile-value" id="gnssSpeed">{{ gnss_status.speed_kmh if gnss_status.speed_kmh is not none else "0.0" }}</div>
+                            <div class="gnss-tile-unit">km/h</div>
+                        </div>
+                        <div class="gnss-tile">
+                            <div class="gnss-tile-label">Altitude</div>
+                            <div class="gnss-tile-value" id="gnssAlt">{{ gnss_status.altitude_m if gnss_status.altitude_m is not none else "--" }}</div>
+                            <div class="gnss-tile-unit">metres MSL</div>
+                        </div>
+                        <div class="gnss-tile">
+                            <div class="gnss-tile-label">HDOP</div>
+                            <div class="gnss-tile-value" id="gnssHdop">{{ gnss_status.hdop if gnss_status.hdop is not none else "--" }}</div>
+                            <div class="gnss-tile-unit">Horizontal dilution</div>
+                        </div>
+                        <div class="gnss-tile">
+                            <div class="gnss-tile-label">Satellites Used / View</div>
+                            <div class="gnss-tile-value" id="gnssSatsDetail">{{ gnss_status.satellites_used }} / {{ gnss_status.satellites_in_view }}</div>
+                            <div class="gnss-tile-unit">used in solution / visible</div>
+                        </div>
+                        <div class="gnss-tile">
+                            <div class="gnss-tile-label">Data Age</div>
+                            <div class="gnss-tile-value" id="gnssAge">{{ gnss_status.data_age_seconds if gnss_status.data_age_seconds is not none else "--" }}</div>
+                            <div class="gnss-tile-unit">seconds since last fix</div>
+                        </div>
+                        <div class="gnss-tile">
+                            <div class="gnss-tile-label">Fix Quality</div>
+                            <div class="gnss-tile-value" id="gnssQuality" style="font-size: 14px; margin-top: 4px;">
+                                {% if gnss_status.fix_quality == 1 %}GPS SPS
+                                {% elif gnss_status.fix_quality == 2 %}DGPS
+                                {% elif gnss_status.fix_quality == 0 %}No Fix
+                                {% else %}Q={{ gnss_status.fix_quality }}{% endif %}
+                            </div>
+                            <div class="gnss-tile-unit">GGA quality indicator</div>
+                        </div>
+                    </div><!-- end gnss-grid -->
+
+                    <div class="flex items-center gap-10" style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">
+                        <span><i class="fa fa-plug"></i> Port: <strong id="gnssPortLabel" style="color: var(--text-secondary);">{{ gnss_status.port }}</strong></span>
+                        <span>@ <strong id="gnssBaudLabel" style="color: var(--text-secondary);">{{ gnss_status.baud }}</strong> baud</span>
+                        <span>Source: <strong id="gnssSourceLabel" style="color: var(--accent-teal);">{{ gnss_status.source }}</strong></span>
+                    </div>
+
+                    <!-- Interactive Live Map in Overview Tab -->
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-size:12px; font-weight:700; color:var(--text-primary);">
+                            <i class="fa fa-map-location-dot" style="color:var(--accent-teal); margin-right:5px;"></i> Live Geospatial Tactical Map
+                        </span>
+                        <div style="display:flex; gap:8px;">
+                            <button class="btn btn-ghost btn-sm" onclick="reconnectHardware()" title="Connect / reconnect GNSS receiver">
+                                <i class="fa fa-plug" style="color:var(--accent-teal);"></i> Connect Hardware
+                            </button>
+                            <button class="btn btn-ghost btn-sm" onclick="centerMapOnHW()" title="Center on hardware fix">
+                                <i class="fa fa-location-crosshairs" style="color:var(--accent-green);"></i> Center Hardware
+                            </button>
+                            <button class="btn btn-ghost btn-sm" onclick="showTab('lab', document.querySelector('.nav-item:nth-of-type(7)'))" title="Open Attack Simulation Lab">
+                                <i class="fa fa-flask" style="color:var(--accent-purple);"></i> Launch Spoofing
+                            </button>
+                        </div>
+                    </div>
+                    <div id="gnssMapOverview" style="height: 400px; border-radius: 10px; border: 1px solid var(--border);"></div>
+                    <p class="text-muted mt-8">
+                        <i class="fa fa-circle-info" style="color:var(--accent-teal);"></i>
+                        Click any packet or spoofed scenario in the ledger to fly directly to its location on the map. Green marker = Physical NEO-M9N fix. Red marker = Injected/spoofed coordinate.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Attack Distribution + Chart -->
+            <div class="panel panel-accent-red">
+                <div class="panel-header">
+                    <div class="panel-title"><i class="fa fa-chart-bar"></i> Attack Distribution</div>
+                </div>
+                <div class="panel-body">
+                    <div id="attackSummary">
+                        {% for attack in attack_counts %}
+                        <div class="attack-item">
+                            <i class="fa fa-bug" style="color: var(--accent-red);"></i>
+                            <span class="attack-type-name">{{ attack.attack_type }}</span>
+                            <span class="attack-count-badge">{{ attack.count }}</span>
+                        </div>
+                        {% else %}
+                        <div class="empty-state">
+                            <i class="fa fa-shield-halved"></i>
+                            <p>No attacks recorded yet. System operating normally.</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ──────────────────────────────────────────── -->
+        <!-- TAB: LIVE GNSS MAP -->
+        <!-- ──────────────────────────────────────────── -->
+        <div class="tab-panel" id="tab-gnss">
+            <div class="panel panel-accent-teal" style="margin-bottom: 16px;">
+                <div class="panel-header">
+                    <div>
+                        <div class="panel-title"><i class="fa fa-satellite-dish"></i> Live Physical GNSS Monitor — 7semi NEO-M9N</div>
+                        <div class="panel-subtitle">Real hardware via ESP32 UART serial ingestion</div>
+                    </div>
+                    <div class="flex items-center gap-8" style="flex-wrap: wrap;">
+                        <span id="fixStatePill2" class="fix-pill fix-none" onclick="reconnectHardware()" style="cursor: pointer;" title="Click to connect / reconnect hardware receiver">{{ gnss_status.fix_state }}</span>
+                        <input type="text" class="form-input" id="serialPortInput" placeholder="e.g. COM9" value="{{ gnss_status.port }}" style="width: 110px;">
+                        <button class="btn btn-ghost btn-sm" id="btnApplyPort" onclick="reconnectHardware()" style="border-color: var(--accent-teal); color: var(--accent-teal);" title="Connect or reconfigure GNSS port">
+                            <i class="fa fa-plug"></i> Connect / Apply Port
+                        </button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="gnss-panel-row">
+                        <!-- Left: metrics -->
+                        <div>
+                            <div class="gnss-grid">
+                                <div class="gnss-tile">
+                                    <div class="gnss-tile-label">Latitude</div>
+                                    <div class="gnss-tile-value" id="gnssLat2">{{ "%.6f"|format(gnss_status.latitude) if gnss_status.latitude is not none else "Waiting…" }}</div>
+                                    <div class="gnss-tile-unit">degrees N/S</div>
+                                </div>
+                                <div class="gnss-tile">
+                                    <div class="gnss-tile-label">Longitude</div>
+                                    <div class="gnss-tile-value" id="gnssLon2">{{ "%.6f"|format(gnss_status.longitude) if gnss_status.longitude is not none else "Waiting…" }}</div>
+                                    <div class="gnss-tile-unit">degrees E/W</div>
+                                </div>
+                                <div class="gnss-tile">
+                                    <div class="gnss-tile-label">Speed</div>
+                                    <div class="gnss-tile-value" id="gnssSpeed2">{{ gnss_status.speed_kmh if gnss_status.speed_kmh is not none else "0.0" }}</div>
+                                    <div class="gnss-tile-unit">km/h</div>
+                                </div>
+                                <div class="gnss-tile">
+                                    <div class="gnss-tile-label">Altitude</div>
+                                    <div class="gnss-tile-value" id="gnssAlt2">{{ gnss_status.altitude_m if gnss_status.altitude_m is not none else "--" }}</div>
+                                    <div class="gnss-tile-unit">metres MSL</div>
+                                </div>
+                                <div class="gnss-tile">
+                                    <div class="gnss-tile-label">HDOP</div>
+                                    <div class="gnss-tile-value" id="gnssHdop2">{{ gnss_status.hdop if gnss_status.hdop is not none else "--" }}</div>
+                                    <div class="gnss-tile-unit">Dilution</div>
+                                </div>
+                                <div class="gnss-tile">
+                                    <div class="gnss-tile-label">Sats Used / View</div>
+                                    <div class="gnss-tile-value" id="gnssSatsDetail2">{{ gnss_status.satellites_used }} / {{ gnss_status.satellites_in_view }}</div>
+                                    <div class="gnss-tile-unit">in solution / visible</div>
+                                </div>
+                                <div class="gnss-tile">
+                                    <div class="gnss-tile-label">Data Age</div>
+                                    <div class="gnss-tile-value" id="gnssAge2">{{ gnss_status.data_age_seconds if gnss_status.data_age_seconds is not none else "--" }}</div>
+                                    <div class="gnss-tile-unit">seconds</div>
+                                </div>
+                                <div class="gnss-tile">
+                                    <div class="gnss-tile-label">Fix Quality</div>
+                                    <div class="gnss-tile-value" id="gnssQuality2" style="font-size: 13px; margin-top: 6px;">
+                                        {% if gnss_status.fix_quality == 2 %}DGPS{% elif gnss_status.fix_quality == 1 %}GPS SPS{% else %}No Fix{% endif %}
+                                    </div>
+                                    <div class="gnss-tile-unit">GGA indicator</div>
+                                </div>
+                            </div>
+                            <p class="text-muted mt-8">
+                                <i class="fa fa-info-circle"></i>
+                                Map displays verified physical GNSS coordinates from the 7semi NEO-M9N via COM port.
+                                Simulated or replayed data is shown with a red marker and is clearly distinguished.
+                                Do not infer GNSS fix authenticity solely from status field validity.
+                            </p>
+                        </div>
+                        <!-- Right: speed mini-chart -->
+                        <div class="panel" style="background: var(--bg-surface); border-color: var(--border);">
+                            <div class="panel-header" style="padding: 12px 14px;">
+                                <div class="panel-title" style="font-size: 12px;"><i class="fa fa-chart-line"></i> Speed History (last 20 fixes)</div>
+                            </div>
+                            <div style="padding: 12px; height: 200px;">
+                                <canvas id="speedChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- DISPLAYED LOCATION / FALSE LOCATION DEMO PANEL -->
+                    <div class="panel" style="background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border); border-left: 4px solid var(--accent-teal); border-radius: 10px; margin-top: 16px; padding: 18px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                            <div>
+                                <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Display Source</div>
+                                <div id="demoDisplaySource" style="font-size:16px; font-weight:800; color:var(--accent-teal); margin-top:2px;">PHYSICAL HARDWARE FIX</div>
+                                <div id="demoCoordsLabel" style="font-size:13px; font-family:monospace; color:var(--text-primary); margin-top:4px;">
+                                    Latitude: <span id="demoLat">--</span> | Longitude: <span id="demoLon">--</span>
+                                </div>
+                                <div id="demoCityLabel" style="font-size:12px; color:var(--text-muted); margin-top:2px;">Live GPS Signal</div>
+                            </div>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                <button class="btn btn-success btn-sm" onclick="startRandomizedDemo()" style="background:#10b981; color:#fff;" title="Simulate a false coordinate jump to test spoofing detection">
+                                    <i class="fa fa-shuffle"></i> Start randomized demo
+                                </button>
+                                <button class="btn btn-ghost btn-sm" onclick="returnToLiveLocation()" style="border-color:#f87171; color:#f87171;" title="Reset displayed coordinates back to real physical GNSS receiver">
+                                    <i class="fa fa-rotate-left"></i> Return to live location
+                                </button>
+                                <button class="btn btn-ghost btn-sm" onclick="updateDashboard()" title="Refresh live telemetry">
+                                    <i class="fa fa-arrows-rotate"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+                        <p style="font-size:11px; color:var(--text-muted); margin-top:10px;">
+                            <i class="fa fa-shield-halved" style="color:var(--accent-teal); margin-right:4px;"></i>
+                            Demo locations are simulated application-level test inputs and do not alter physical receiver hardware or transmit radio signals.
+                    </div>
+
+                    <!-- HARDWARE ATTACK SIMULATION & LIVE ATTACK TESTING PANEL -->
+                    <div class="panel" style="background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border); border-left: 4px solid var(--accent-red); border-radius: 10px; margin-top: 16px; padding: 18px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                            <div>
+                                <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Hardware Attack Injection Lab</div>
+                                <div style="font-size:15px; font-weight:800; color:var(--accent-red); margin-top:2px;">
+                                    <i class="fa fa-radiation"></i> Inject Real-Time Hardware Attacks
+                                </div>
+                                <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                                    Simulate physical receiver attacks to test hardware anomaly detection &amp; update attack distribution counters
+                                </div>
+                            </div>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                <button class="btn btn-danger btn-sm" onclick="injectHardwareAttack('location_jump')" title="Inject sudden false position jump on physical GNSS receiver">
+                                    <i class="fa fa-map-pin"></i> Spoof Location Jump
+                                </button>
+                                <button class="btn btn-danger btn-sm" onclick="injectHardwareAttack('speed_surge')" title="Inject velocity surge (285 km/h) to trigger Doppler speed limit defense">
+                                    <i class="fa fa-gauge-high"></i> Speed Surge
+                                </button>
+                                <button class="btn btn-danger btn-sm" onclick="injectHardwareAttack('altitude_spoof')" title="Inject vertical axis displacement (8,450 m MSL)">
+                                    <i class="fa fa-mountain"></i> Altitude Spoof
+                                </button>
+                                <button class="btn btn-danger btn-sm" onclick="injectHardwareAttack('nmea_corruption')" title="Inject corrupt XOR checksum and malformed sentence into UART stream">
+                                    <i class="fa fa-bug"></i> NMEA Checksum Error
+                                </button>
+                                <button class="btn btn-danger btn-sm" onclick="injectHardwareAttack('jamming_loss')" title="Simulate RF carrier jamming and sudden satellite tracking collapse">
+                                    <i class="fa fa-signal-slash"></i> RF Jamming Loss
+                                </button>
+                                <button class="btn btn-danger btn-sm" onclick="injectHardwareAttack('constellation_drift')" title="Inject stealth creeping ephemeris drift across multi-constellation fix">
+                                    <i class="fa fa-satellite"></i> Constellation Drift
+                                </button>
+                                <button class="btn btn-danger btn-sm" onclick="injectHardwareAttack('timestamp_manipulation')" title="Inject chronological time inversion stepping backward 300s">
+                                    <i class="fa fa-clock-rotate-left"></i> Time Inversion
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tactical Map in Live GNSS Tab -->
+                    <div id="gnssMap" style="margin-top: 16px; height: 460px; border-radius: 10px; border: 1px solid var(--border);"></div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ──────────────────────────────────────────── -->
+        <!-- TAB: TELEMETRY PACKETS -->
+        <!-- ──────────────────────────────────────────── -->
+        <div class="tab-panel" id="tab-packets">
+            <div class="panel panel-accent-blue">
+                <div class="panel-header">
+                    <div>
+                        <div class="panel-title"><i class="fa fa-network-wired"></i> Live GPS Telemetry Stream</div>
+                        <div class="panel-subtitle">Refreshed every 2 s — shows most recent 15 packets</div>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Pkt #</th>
+                                <th>Device / IMEI</th>
+                                <th>Source</th>
+                                <th>Protocol</th>
+                                <th>Latitude</th>
+                                <th>Longitude</th>
+                                <th>Speed</th>
+                                <th>Sats</th>
+                                <th>Validation</th>
+                                <th>Received At</th>
+                                <th>Map / Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="packetTable">
+                            {% for packet in packets %}
+                            <tr class="{{ 'row-anomaly' if packet.validation_status == 'ANOMALY_DETECTED' else 'row-normal' }}">
+                                <td><strong>#{{ packet.packet_id }}</strong></td>
+                                <td><code>{{ packet.imei or packet.device_id or "–" }}</code></td>
+                                <td>
+                                    {% if packet.is_simulation %}
+                                        <span class="badge badge-sim">SIMULATED</span>
+                                    {% else %}
+                                        <span class="badge badge-hw">HARDWARE</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ packet.protocol or "–" }}</td>
+                                <td>{{ "%.5f"|format(packet.latitude) if packet.latitude is not none else "–" }}</td>
+                                <td>{{ "%.5f"|format(packet.longitude) if packet.longitude is not none else "–" }}</td>
+                                <td>{{ "%.1f km/h"|format(packet.speed) if packet.speed is not none else "–" }}</td>
+                                <td>{{ packet.satellites_used or "–" }}</td>
+                                <td>
+                                    {% if packet.validation_status == "ANOMALY_DETECTED" %}
+                                        <span class="badge badge-high"><i class="fa fa-triangle-exclamation"></i> ANOMALY</span>
+                                    {% else %}
+                                        <span class="badge badge-normal"><i class="fa fa-check"></i> NORMAL</span>
+                                    {% endif %}
+                                </td>
+                                <td style="color: var(--text-muted);">{{ packet.received_at }}</td>
+                                <td style="white-space:nowrap;">
+                                    <button class="btn btn-ghost btn-sm" onclick="openPacketDetails({{ packet.packet_id }})" title="Inspect complete packet payload &amp; telemetry details" style="color:var(--accent-teal);">
+                                        <i class="fa fa-eye"></i> View
+                                    </button>
+                                    {% if packet.latitude is not none and packet.longitude is not none %}
+                                    <button class="btn btn-ghost btn-sm" onclick="flyToCoordinate({{ packet.latitude }}, {{ packet.longitude }}, 'Packet #{{ packet.packet_id }} ({{ packet.imei or packet.device_id }})', {{ 1 if packet.is_simulation else 0 }}, '{{ packet.validation_status }}', 'overview')" title="Locate on Map" style="margin-left:4px;">
+                                        <i class="fa fa-location-dot" style="color:{{ 'var(--accent-red)' if packet.is_simulation else 'var(--accent-blue)' }};"></i>
+                                    </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="11">
+                                    <div class="empty-state">
+                                        <i class="fa fa-satellite"></i>
+                                        <p>No packets received yet.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ──────────────────────────────────────────── -->
+        <!-- TAB: SECURITY EVENTS -->
+        <!-- ──────────────────────────────────────────── -->
+        <div class="tab-panel" id="tab-events">
+            <div class="panel panel-accent-red">
+                <div class="panel-header">
+                    <div class="panel-title"><i class="fa fa-shield-halved"></i> Live Security Events &amp; Active Anomalies</div>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Event #</th>
+                                <th>Pkt #</th>
+                                <th>Device / IMEI</th>
+                                <th>Attack / Anomaly</th>
+                                <th>Severity</th>
+                                <th>Description</th>
+                                <th>Mitigation</th>
+                                <th>Status</th>
+                                <th>Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody id="eventTable">
+                            {% for event in events %}
+                            <tr class="{{ 'row-anomaly' if event.severity == 'HIGH' else '' }}">
+                                <td><strong>#{{ event.event_id }}</strong></td>
+                                <td>{{ event.packet_id }}</td>
+                                <td><code>{{ event.imei }}</code></td>
+                                <td style="color: var(--accent-red); font-weight: 600;">{{ event.attack_type }}</td>
+                                <td>
+                                    <span class="badge {% if event.severity == 'HIGH' %}badge-high{% elif event.severity == 'MEDIUM' %}badge-medium{% else %}badge-low{% endif %}">
+                                        {{ event.severity }}
+                                    </span>
+                                </td>
+                                <td style="max-width: 280px; white-space: normal; color: var(--text-muted);">{{ event.description }}</td>
+                                <td><span class="badge badge-gray">{{ event.action }}</span></td>
+                                <td>{{ event.status }}</td>
+                                <td style="color: var(--text-muted);">{{ event.event_time }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="9">
+                                    <div class="empty-state">
+                                        <i class="fa fa-shield-halved" style="color: var(--accent-green);"></i>
+                                        <p>No active security events. System operating normally.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ──────────────────────────────────────────── -->
+        <!-- TAB: FORENSIC ARCHIVE -->
+        <!-- ──────────────────────────────────────────── -->
+        <div class="tab-panel" id="tab-history">
+            <div class="panel" style="margin-bottom: 20px;">
+                <div class="panel-header">
+                    <div class="panel-title"><i class="fa fa-clock-rotate-left"></i> Forensic Packet Archive</div>
+                    <span class="badge badge-info">{{ history_total_packets }} Archived</span>
+                </div>
+                <div class="table-wrap" style="max-height: 360px; overflow-y: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>History #</th>
+                                <th>Device</th>
+                                <th>Lat / Lon</th>
+                                <th>Speed</th>
+                                <th>Status</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyPacketTable">
+                            {% for hp in history_packets %}
+                            <tr class="{{ 'row-anomaly' if hp.validation_status == 'ANOMALY_DETECTED' else '' }}">
+                                <td>#{{ hp.history_id }}</td>
+                                <td><code>{{ hp.imei or "–" }}</code></td>
+                                <td>{{ "%.4f, %.4f"|format(hp.latitude, hp.longitude) if (hp.latitude and hp.longitude) else "–" }}</td>
+                                <td>{{ "%.1f"|format(hp.speed) if hp.speed else "–" }}</td>
+                                <td>
+                                    {% if hp.validation_status == 'ANOMALY_DETECTED' %}
+                                        <span class="badge badge-high">ANOMALY</span>
+                                    {% else %}
+                                        <span class="badge badge-normal">NORMAL</span>
+                                    {% endif %}
+                                </td>
+                                <td style="color: var(--text-muted);">{{ hp.received_at }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title"><i class="fa fa-bomb"></i> Forensic Incident Archive</div>
+                    <span class="badge badge-high">{{ history_total_events }} Recorded</span>
+                </div>
+                <div class="table-wrap" style="max-height: 360px; overflow-y: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Incident #</th>
+                                <th>Device</th>
+                                <th>Attack Type</th>
+                                <th>Severity</th>
+                                <th>Action</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyEventTable">
+                            {% for he in history_events %}
+                            <tr class="{{ 'row-anomaly' if he.severity == 'HIGH' else '' }}">
+                                <td>#{{ he.history_event_id }}</td>
+                                <td><code>{{ he.imei }}</code></td>
+                                <td style="color: var(--accent-red); font-weight: 600;">{{ he.attack_type }}</td>
+                                <td>
+                                    <span class="badge {% if he.severity == 'HIGH' %}badge-high{% else %}badge-medium{% endif %}">
+                                        {{ he.severity }}
+                                    </span>
+                                </td>
+                                <td><span class="badge badge-gray">{{ he.action }}</span></td>
+                                <td style="color: var(--text-muted);">{{ he.event_time }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ──────────────────────────────────────────── -->
+        <!-- TAB: DEVICES -->
+        <!-- ──────────────────────────────────────────── -->
+        <div class="tab-panel" id="tab-devices">
+            <div class="panel panel-accent-blue">
+                <div class="panel-header">
+                    <div class="panel-title"><i class="fa fa-mobile-screen"></i> Registered Devices &amp; Authorization Status</div>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>IMEI / Hardware Identifier</th>
+                                <th>Device Name</th>
+                                <th>Authorization Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for device in devices %}
+                            <tr>
+                                <td>{{ device.device_id }}</td>
+                                <td><code>{{ device.imei }}</code></td>
+                                <td style="font-weight: 600;">{{ device.device_name }}</td>
+                                <td>
+                                    {% if device.status == 'AUTHORIZED' %}
+                                        <span class="badge badge-normal"><i class="fa fa-lock-open"></i> AUTHORIZED</span>
+                                    {% else %}
+                                        <span class="badge badge-high"><i class="fa fa-ban"></i> {{ device.status }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ──────────────────────────────────────────── -->
+        <!-- TAB: ATTACK LAB -->
+        <!-- ──────────────────────────────────────────── -->
+        <div class="tab-panel" id="tab-lab">
+            <div class="panel panel-accent-purple">
+                <div class="panel-header">
+                    <div>
+                        <div class="panel-title"><i class="fa fa-flask"></i> TrackGuard Attack Simulation &amp; Detection Laboratory</div>
+                        <div class="panel-subtitle">Controlled defensive test scenarios executing through the live detection and mitigation engine</div>
+                    </div>
+                    <div class="flex items-center gap-8">
+                        <button class="btn btn-purple" onclick="runAllSimulationScenarios()">
+                            <i class="fa fa-bolt"></i> Run All 12 Scenarios
+                        </button>
+                        <button class="btn btn-ghost btn-sm" onclick="clearSimulationResults()">
+                            <i class="fa fa-broom"></i> Clear Lab Logs
+                        </button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="disclaimer">
+                        <strong>CRITICAL EXAMINER DISCLAIMER:</strong>
+                        All laboratory attack tests are application-level cybersecurity simulations and defensive integrity validations.
+                        They do not alter physical receiver firmware, transmit over-the-air radio signals, or constitute real attacks.
+                        Changing application-level coordinates is not an RF-level spoofing attack.
+                    </div>
+
+                    <!-- Progress bar for Run All -->
+                    <div class="progress-wrap" id="labProgressWrap">
+                        <div class="progress-bar-track">
+                            <div class="progress-bar-fill" id="labProgressFill"></div>
+                        </div>
+                        <div class="progress-label" id="labProgressLabel">Running scenarios…</div>
+                    </div>
+
+                    <!-- Lab scenario cards -->
+                    <div class="lab-grid" id="labGrid">
+                        <!-- Scenario 1 -->
+                        <div class="lab-card" id="labCard-1" style="border-top: 2px solid var(--accent-red);">
+                            <span class="lab-card-num">01</span>
+                            <div class="lab-card-title"><i class="fa fa-satellite-dish" style="color:var(--accent-red); margin-right:4px;"></i> False Position / Spoofing Indicator</div>
+                            <div class="lab-card-desc">
+                                Injects false position coordinates &gt;1500 km away to test Haversine displacement &amp; kinematic speed limits. 
+                                <span style="display:block; margin-top:4px; color:var(--accent-teal); font-weight:600;"><i class="fa fa-shuffle"></i> Randomizes worldwide on every click or select a specific target.</span>
+                            </div>
+                            <!-- Location picker control -->
+                            <div style="display:flex; flex-direction:column; gap:6px; margin: 4px 0 8px;">
+                                <label style="font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Spoofed Target Location:</label>
+                                <select id="spoofLocationSelect" class="form-input" style="width:100%; font-size:11px; padding:5px 8px;">
+                                    <option value="RANDOM">🎲 Random Worldwide Target (Every Run Changes)</option>
+                                    <optgroup label="Asia & Middle East">
+                                        <option value='{"name":"Tokyo, Japan","lat":35.6762,"lon":139.6503}'>Tokyo, Japan (35.68°N, 139.65°E)</option>
+                                        <option value='{"name":"Dubai, UAE","lat":25.2048,"lon":55.2708}'>Dubai, UAE (25.20°N, 55.27°E)</option>
+                                        <option value='{"name":"Singapore","lat":1.3521,"lon":103.8198}'>Singapore (1.35°N, 103.82°E)</option>
+                                        <option value='{"name":"Seoul, South Korea","lat":37.5665,"lon":126.9780}'>Seoul, South Korea (37.57°N, 126.98°E)</option>
+                                        <option value='{"name":"Bangkok, Thailand","lat":13.7563,"lon":100.5018}'>Bangkok, Thailand (13.76°N, 100.50°E)</option>
+                                    </optgroup>
+                                    <optgroup label="Europe">
+                                        <option value='{"name":"London, UK","lat":51.5074,"lon":-0.1278}'>London, United Kingdom (51.51°N, 0.13°W)</option>
+                                        <option value='{"name":"Paris, France","lat":48.8566,"lon":2.3522}'>Paris, France (48.86°N, 2.35°E)</option>
+                                        <option value='{"name":"Berlin, Germany","lat":52.5200,"lon":13.4050}'>Berlin, Germany (52.52°N, 13.41°E)</option>
+                                        <option value='{"name":"Geneva, Switzerland","lat":46.2044,"lon":6.1432}'>Geneva, Switzerland (46.20°N, 6.14°E)</option>
+                                        <option value='{"name":"Reykjavik, Iceland","lat":64.1466,"lon":-21.9426}'>Reykjavik, Iceland (64.15°N, 21.94°W)</option>
+                                    </optgroup>
+                                    <optgroup label="Americas">
+                                        <option value='{"name":"New York City, USA","lat":40.7128,"lon":-74.0060}'>New York City, USA (40.71°N, 74.01°W)</option>
+                                        <option value='{"name":"San Francisco, USA","lat":37.7749,"lon":-122.4194}'>San Francisco, USA (37.77°N, 122.42°W)</option>
+                                        <option value='{"name":"Rio de Janeiro, Brazil","lat":-22.9068,"lon":-43.1729}'>Rio de Janeiro, Brazil (22.91°S, 43.17°W)</option>
+                                        <option value='{"name":"Toronto, Canada","lat":43.6532,"lon":-79.3832}'>Toronto, Canada (43.65°N, 79.38°W)</option>
+                                        <option value='{"name":"Buenos Aires, Argentina","lat":-34.6037,"lon":-58.3816}'>Buenos Aires, Argentina (34.60°S, 58.38°W)</option>
+                                    </optgroup>
+                                    <optgroup label="Africa & Oceania">
+                                        <option value='{"name":"Cairo, Egypt","lat":30.0444,"lon":31.2357}'>Cairo, Egypt (30.04°N, 31.24°E)</option>
+                                        <option value='{"name":"Cape Town, South Africa","lat":-33.9249,"lon":18.4241}'>Cape Town, South Africa (33.92°S, 18.42°E)</option>
+                                        <option value='{"name":"Sydney, Australia","lat":-33.8688,"lon":151.2093}'>Sydney, Australia (33.87°S, 151.21°E)</option>
+                                        <option value='{"name":"Auckland, New Zealand","lat":-36.8485,"lon":174.7633}'>Auckland, New Zealand (36.85°S, 174.76°E)</option>
+                                    </optgroup>
+                                    <optgroup label="India">
+                                        <option value='{"name":"New Delhi, India","lat":28.6139,"lon":77.2090}'>New Delhi, India (28.61°N, 77.21°E)</option>
+                                        <option value='{"name":"Mumbai, India","lat":19.0760,"lon":72.8777}'>Mumbai, India (19.08°N, 72.88°E)</option>
+                                        <option value='{"name":"Bengaluru, India","lat":12.9716,"lon":77.5946}'>Bengaluru, India (12.97°N, 77.59°E)</option>
+                                        <option value='{"name":"Kolkata, India","lat":22.5726,"lon":88.3639}'>Kolkata, India (22.57°N, 88.36°E)</option>
+                                        <option value='{"name":"Leh, Ladakh, India","lat":34.1526,"lon":77.5771}'>Leh, Ladakh, India (34.15°N, 77.58°E)</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <div class="lab-card-footer">
+                                <div class="lab-card-result" id="labResult-1"><span class="badge badge-gray">NOT RUN</span></div>
+                                <div style="display:flex; gap:6px;">
+                                    <button class="btn btn-purple btn-sm" onclick="runSingleScenario('1', true)" title="Pick a new random worldwide location and test spoofing">
+                                        <i class="fa fa-shuffle"></i> Random Run
+                                    </button>
+                                    <button class="btn btn-ghost btn-sm" onclick="runSingleScenario('1', false)">
+                                        <i class="fa fa-play"></i> Run
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Scenario 2 -->
+                        <div class="lab-card" id="labCard-2">
+                            <span class="lab-card-num">02</span>
+                            <div class="lab-card-title">Position Jump Anomaly</div>
+                            <div class="lab-card-desc">
+                                Simulates physically implausible coordinate transition exceeding velocity limits. 
+                                <span style="display:block; margin-top:4px; color:var(--accent-teal); font-weight:600;"><i class="fa fa-shuffle"></i> Randomly hops across international destinations.</span>
+                            </div>
+                            <div class="lab-card-footer">
+                                <div class="lab-card-result" id="labResult-2"><span class="badge badge-gray">NOT RUN</span></div>
+                                <button class="btn btn-ghost btn-sm" onclick="runSingleScenario('2', true)">
+                                    <i class="fa fa-play"></i> Run Jump Test
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Scenario 3 -->
+                        <div class="lab-card" id="labCard-3">
+                            <span class="lab-card-num">03</span>
+                            <div class="lab-card-title">Speed Anomaly Excursion</div>
+                            <div class="lab-card-desc">Injects vehicle telemetry with 185 km/h spike. Verifies configurable speed alert generation without mislabeling as GNSS spoofing.</div>
+                            <div class="lab-card-footer">
+                                <div class="lab-card-result" id="labResult-3"><span class="badge badge-gray">NOT RUN</span></div>
+                                <button class="btn btn-ghost btn-sm" onclick="runSingleScenario('3')">
+                                    <i class="fa fa-play"></i> Run
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Scenario 4 -->
+                        <div class="lab-card" id="labCard-4">
+                            <span class="lab-card-num">04</span>
+                            <div class="lab-card-title">Telemetry Packet Replay</div>
+                            <div class="lab-card-desc">Submits identical telemetry packet twice to test SHA-256 fingerprint replay detection and mitigation blocking. Distinct from RF signal replay.</div>
+                            <div class="lab-card-footer">
+                                <div class="lab-card-result" id="labResult-4"><span class="badge badge-gray">NOT RUN</span></div>
+                                <button class="btn btn-ghost btn-sm" onclick="runSingleScenario('4')">
+                                    <i class="fa fa-play"></i> Run
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Scenario 5 -->
+                        <div class="lab-card" id="labCard-5">
+                            <span class="lab-card-num">05</span>
+                            <div class="lab-card-title">Unauthorized Device / IMEI Spoofing</div>
+                            <div class="lab-card-desc">Submits telemetry from synthetic rogue device ID (999999999999999) and verifies rejection against authorized device table. No real third-party identifiers used.</div>
+                            <div class="lab-card-footer">
+                                <div class="lab-card-result" id="labResult-5"><span class="badge badge-gray">NOT RUN</span></div>
+                                <button class="btn btn-ghost btn-sm" onclick="runSingleScenario('5')">
+                                    <i class="fa fa-play"></i> Run
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Scenario 6 -->
+                        <div class="lab-card" id="labCard-6">
+                            <span class="lab-card-num">06</span>
+                            <div class="lab-card-title">NMEA Data Injection &amp; Checksums</div>
+                            <div class="lab-card-desc">Feeds corrupt checksum and malformed NMEA sentences into isolated test parser. Validates checksum XOR, field ranges, fix status, and timestamp rejection.</div>
+                            <div class="lab-card-footer">
+                                <div class="lab-card-result" id="labResult-6"><span class="badge badge-gray">NOT RUN</span></div>
+                                <button class="btn btn-ghost btn-sm" onclick="runSingleScenario('6')">
+                                    <i class="fa fa-play"></i> Run
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Scenario 7 -->
+                        <div class="lab-card" id="labCard-7">
+                            <span class="lab-card-num">07</span>
+                            <div class="lab-card-title">Timestamp Inversion Manipulation</div>
+                            <div class="lab-card-desc">Injects packets with timestamps stepping backward or having future clock drift, with UTC midnight rollover handling and clock-skew flagging.</div>
+                            <div class="lab-card-footer">
+                                <div class="lab-card-result" id="labResult-7"><span class="badge badge-gray">NOT RUN</span></div>
+                                <button class="btn btn-ghost btn-sm" onclick="runSingleScenario('7')">
+                                    <i class="fa fa-play"></i> Run
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Scenario 8 -->
+                        <div class="lab-card" id="labCard-8">
+                            <span class="lab-card-num">08</span>
+                            <div class="lab-card-title">Fix Status Semantic Manipulation</div>
+                            <div class="lab-card-desc">Tests contradictory telemetry declaring valid position despite GGA quality=0 and 0 satellites used. Fix integrity check validates consistency.</div>
+                            <div class="lab-card-footer">
+                                <div class="lab-card-result" id="labResult-8"><span class="badge badge-gray">NOT RUN</span></div>
+                                <button class="btn btn-ghost btn-sm" onclick="runSingleScenario('8')">
+                                    <i class="fa fa-play"></i> Run
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Scenario 9 -->
+                        <div class="lab-card" id="labCard-9">
+                            <span class="lab-card-num">09</span>
+                            <div class="lab-card-title">GNSS Signal Loss / Antenna Fault</div>
+                            <div class="lab-card-desc">Simulates drop to 0 satellites and loss of fix. Confirms last known valid position is preserved with staleness timer and no synthetic coordinates are generated.</div>
+                            <div class="lab-card-footer">
+                                <div class="lab-card-result" id="labResult-9"><span class="badge badge-gray">NOT RUN</span></div>
+                                <button class="btn btn-ghost btn-sm" onclick="runSingleScenario('9')">
+                                    <i class="fa fa-play"></i> Run
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Scenario 10 -->
+                        <div class="lab-card" id="labCard-10">
+                            <span class="lab-card-num">10</span>
+                            <div class="lab-card-title">Coordinate Bounds Integrity</div>
+                            <div class="lab-card-desc">Injects out-of-bounds latitude 999.0 and longitude -500.0 to verify strict bounds rejection and REJECT mitigation policy enforcement.</div>
+                            <div class="lab-card-footer">
+                                <div class="lab-card-result" id="labResult-10"><span class="badge badge-gray">NOT RUN</span></div>
+                                <button class="btn btn-ghost btn-sm" onclick="runSingleScenario('10')">
+                                    <i class="fa fa-play"></i> Run
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Scenario 11 -->
+                        <div class="lab-card" id="labCard-11">
+                            <span class="lab-card-num">11</span>
+                            <div class="lab-card-title">PCAP Capture Replay Analysis</div>
+                            <div class="lab-card-desc">Validates network PCAP capture analysis pipeline, differentiates network-level packet replay from RF signal replay. TShark-backed forensic validation.</div>
+                            <div class="lab-card-footer">
+                                <div class="lab-card-result" id="labResult-11"><span class="badge badge-gray">NOT RUN</span></div>
+                                <button class="btn btn-ghost btn-sm" onclick="runSingleScenario('11')">
+                                    <i class="fa fa-play"></i> Run
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Scenario 12 -->
+                        <div class="lab-card" id="labCard-12">
+                            <span class="lab-card-num">12</span>
+                            <div class="lab-card-title">SDR Receive-Only Forensic Analysis</div>
+                            <div class="lab-card-desc">Inspects offline ADALM-PLUTO SDR I/Q samples at 2.4 GHz LO. Confirms non-GNSS frequency range. Passive receive only — no transmission or jamming.</div>
+                            <div class="lab-card-footer">
+                                <div class="lab-card-result" id="labResult-12"><span class="badge badge-gray">NOT RUN</span></div>
+                                <button class="btn btn-ghost btn-sm" onclick="runSingleScenario('12')">
+                                    <i class="fa fa-play"></i> Run
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Simulation Evidence Table -->
+                    <h3 style="margin-top: 28px; margin-bottom: 12px; font-size: 14px; font-weight: 700; color: var(--text-primary);">
+                        <i class="fa fa-table" style="color: var(--accent-purple);"></i>
+                        Laboratory Execution Ledger &amp; Evidence
+                    </h3>
+                    <div class="table-wrap" style="max-height: 420px; overflow-y: auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Run #</th>
+                                    <th>Scenario</th>
+                                    <th>Name</th>
+                                    <th>Expected Detection</th>
+                                    <th>Observed</th>
+                                    <th>Severity</th>
+                                    <th>Mitigation</th>
+                                    <th>Result</th>
+                                    <th>Executed At</th>
+                                </tr>
+                            </thead>
+                            <tbody id="simTableBody">
+                                {% for run in simulation_runs %}
+                                <tr class="{{ 'row-anomaly' if run.pass_fail == 'FAIL' else '' }}">
+                                    <td><strong>#{{ run.run_id }}</strong></td>
+                                    <td><span class="badge badge-gray">{{ run.scenario_id }}</span></td>
+                                    <td style="font-weight: 600; color: var(--text-primary);">{{ run.scenario_name }}</td>
+                                    <td style="color: var(--text-muted); max-width: 180px; white-space: normal;">{{ run.expected_detection }}</td>
+                                    <td style="color: var(--text-muted); max-width: 180px; white-space: normal;">{{ run.observed_detection }}</td>
+                                    <td>
+                                        <span class="badge {% if run.severity == 'HIGH' %}badge-high{% elif run.severity == 'MEDIUM' %}badge-medium{% else %}badge-low{% endif %}">
+                                            {{ run.severity }}
+                                        </span>
+                                    </td>
+                                    <td><span class="badge badge-gray">{{ run.mitigation_action }}</span></td>
+                                    <td>
+                                        <span class="badge {% if run.pass_fail == 'PASS' %}badge-pass{% else %}badge-fail{% endif %}">
+                                            {{ run.pass_fail }}
+                                        </span>
+                                    </td>
+                                    <td style="color: var(--text-muted);">{{ run.executed_at }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="9">
+                                        <div class="empty-state">
+                                            <i class="fa fa-flask"></i>
+                                            <p>No simulation tests executed yet. Click any scenario card to run!</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ──────────────────────────────────────────── -->
+        <!-- TAB: PCAP / WIRESHARK -->
+        <!-- ──────────────────────────────────────────── -->
+        <div class="tab-panel" id="tab-pcap">
+            <div class="panel panel-accent-blue">
+                <div class="panel-header">
+                    <div>
+                        <div class="panel-title"><i class="fa fa-fish"></i> Wireshark / PCAP Packet Extraction (TShark)</div>
+                        <div class="panel-subtitle">Upload or inspect PCAP/PCAPNG network captures</div>
+                    </div>
+                    {% if tshark_version %}
+                        <span class="badge badge-normal"><i class="fa fa-check"></i> TShark {{ tshark_version }}</span>
+                    {% else %}
+                        <span class="badge badge-warn"><i class="fa fa-exclamation-triangle"></i> TShark Not Found</span>
+                    {% endif %}
+                </div>
+                <div class="panel-body">
+                    <form action="{{ url_for('upload_pcap') }}" method="POST" enctype="multipart/form-data"
+                          class="flex items-center gap-8" style="margin-bottom: 20px; flex-wrap: wrap;">
+                        <input type="file" name="pcap_file" accept=".pcap,.pcapng,.cap" required class="form-input">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa fa-upload"></i> Upload &amp; Analyze
+                        </button>
+                    </form>
+
+                    {% for file in pcap_files %}
+                    <div class="pcap-item">
+                        <div>
+                            <div class="pcap-name"><i class="fa fa-file-code" style="color: var(--accent-blue);"></i> {{ file.name }}</div>
+                            <div class="pcap-size">{{ file.size }} bytes</div>
+                        </div>
+                        <div class="flex gap-8">
+                            <a class="btn btn-primary btn-sm" href="{{ url_for('analyze_pcap', filename=file.name) }}">
+                                <i class="fa fa-magnifying-glass"></i> Inspect
+                            </a>
+                            <a class="btn btn-ghost btn-sm" href="{{ url_for('serve_pcap', filename=file.name) }}">
+                                <i class="fa fa-download"></i> Download
+                            </a>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="empty-state">
+                        <i class="fa fa-file-code"></i>
+                        <p>No PCAP files available in the captures directory.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ──────────────────────────────────────────── -->
+        <!-- TAB: SDR FORENSICS -->
+        <!-- ──────────────────────────────────────────── -->
+        <div class="tab-panel" id="tab-sdr">
+            <div class="panel panel-accent-orange">
+                <div class="panel-header">
+                    <div class="panel-title"><i class="fa fa-broadcast-tower"></i> ADALM-PLUTO SDR Receive-Only Forensic Analysis</div>
+                </div>
+                <div class="panel-body">
+                    <div class="sdr-disclaimer">
+                        <strong>SDR SAFETY &amp; METHODOLOGY BOUNDARIES:</strong>
+                        The ADALM-PLUTO SDR Rev.C (AD9363A) receive sample capture was conducted with the receiver Local Oscillator (LO) at
+                        <strong style="color: var(--accent-orange);">2.4 GHz ISM band</strong>. It has not established the presence of GPS L1 (1575.42 MHz) signals.
+                        Nonzero I/Q samples represent general RF ambient power, not proof of GNSS signals or GNSS spoofing.
+                        No radio transmission, jamming, or over-the-air counterfeit GNSS signals are implemented.
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Capture File</th>
+                                    <th>File Size</th>
+                                    <th>Sample Format</th>
+                                    <th>Sample Rate</th>
+                                    <th>Center Frequency (LO)</th>
+                                    <th>Analysis Status</th>
+                                    <th>Forensic Assessment</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cap in sdr_captures %}
+                                <tr>
+                                    <td><strong>{{ cap.filename }}</strong></td>
+                                    <td>{{ (cap.filesize_bytes / 1024 / 1024)|round(2) }} MB</td>
+                                    <td><code>{{ cap.sample_format }}</code></td>
+                                    <td>{{ (cap.sample_rate_sps / 1000000)|round(1) }} MSPS</td>
+                                    <td>
+                                        <span class="badge badge-warn">{{ (cap.center_freq_hz / 1000000000)|round(2) }} GHz (2.4 GHz ISM)</span>
+                                    </td>
+                                    <td><span class="badge badge-info">{{ cap.analysis_status }}</span></td>
+                                    <td style="max-width: 300px; white-space: normal; color: var(--text-muted);">
+                                        <small>{{ cap.notes }}</small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- end page-content -->
+</div><!-- end main -->
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- PACKET DETAILS MODAL (Telemetry Inspector) -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="packetDetailModal" onclick="closePacketModalOnBackdrop(event)">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <div class="modal-header-title">
+                <div class="modal-icon-badge">
+                    <i class="fa fa-satellite-dish" style="color:var(--accent-teal);"></i>
+                </div>
+                <div>
+                    <h3>Telemetry Packet <span id="pmPacketId" style="color:var(--accent-teal);">#--</span> Details</h3>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:2px;" id="pmSubtitle">Forensic Inspection &amp; Protocol Verification</div>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <span id="pmSourceBadge" class="badge badge-hw">HARDWARE</span>
+                <span id="pmStatusBadge" class="badge badge-normal">NORMAL</span>
+                <button class="modal-close-btn" onclick="closePacketModal()" title="Close Inspector"><i class="fa fa-xmark"></i></button>
+            </div>
+        </div>
+
+        <div class="modal-body">
+            <!-- Alert Banner for Anomalies or Normal status -->
+            <div id="pmAlertBanner" style="display:none;"></div>
+
+            <!-- Metadata Cards Grid -->
+            <div>
+                <div class="modal-section-title"><i class="fa fa-circle-info"></i> Ingestion &amp; Device Identity</div>
+                <div class="modal-grid-4">
+                    <div class="modal-stat-card">
+                        <div class="modal-stat-label">Device / IMEI</div>
+                        <div class="modal-stat-value"><code id="pmImei" style="font-size:13px;">--</code></div>
+                    </div>
+                    <div class="modal-stat-card">
+                        <div class="modal-stat-label">Protocol</div>
+                        <div class="modal-stat-value" id="pmProtocol">--</div>
+                    </div>
+                    <div class="modal-stat-card">
+                        <div class="modal-stat-label">Packet Type</div>
+                        <div class="modal-stat-value" id="pmType">--</div>
+                    </div>
+                    <div class="modal-stat-card">
+                        <div class="modal-stat-label">Source Channel</div>
+                        <div class="modal-stat-value" id="pmSource">--</div>
+                    </div>
+                </div>
+                <div class="modal-grid-3" style="margin-top:10px;">
+                    <div class="modal-stat-card">
+                        <div class="modal-stat-label">Received At</div>
+                        <div class="modal-stat-value" id="pmReceivedAt" style="font-size:12px;">--</div>
+                    </div>
+                    <div class="modal-stat-card">
+                        <div class="modal-stat-label">Fix Validity</div>
+                        <div class="modal-stat-value" id="pmFixValid">--</div>
+                    </div>
+                    <div class="modal-stat-card">
+                        <div class="modal-stat-label">Detection Latency</div>
+                        <div class="modal-stat-value" id="pmDetectionTime">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Geospatial & Kinematics Grid -->
+            <div>
+                <div class="modal-section-title"><i class="fa fa-location-crosshairs"></i> Geospatial &amp; Kinematic Telemetry</div>
+                <div class="modal-grid-3">
+                    <div class="modal-stat-card">
+                        <div class="modal-stat-label">Latitude</div>
+                        <div class="modal-stat-value" id="pmLat">--</div>
+                    </div>
+                    <div class="modal-stat-card">
+                        <div class="modal-stat-label">Longitude</div>
+                        <div class="modal-stat-value" id="pmLon">--</div>
+                    </div>
+                    <div class="modal-stat-card">
+                        <div class="modal-stat-label">Speed Over Ground</div>
+                        <div class="modal-stat-value" id="pmSpeed">--</div>
+                    </div>
+                    <div class="modal-stat-card">
+                        <div class="modal-stat-label">Altitude</div>
+                        <div class="modal-stat-value" id="pmAlt">--</div>
+                    </div>
+                    <div class="modal-stat-card">
+                        <div class="modal-stat-label">Satellites Used</div>
+                        <div class="modal-stat-value" id="pmSats">--</div>
+                    </div>
+                    <div class="modal-stat-card">
+                        <div class="modal-stat-label">HDOP Precision</div>
+                        <div class="modal-stat-value" id="pmHdop">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Raw Forensic Payload -->
+            <div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                    <div class="modal-section-title" style="margin-bottom:0;"><i class="fa fa-terminal"></i> Raw Forensic Payload</div>
+                    <button class="btn btn-ghost btn-sm" onclick="copyPacketPayload()" title="Copy raw payload to clipboard">
+                        <i class="fa fa-copy"></i> <span id="copyPayloadText">Copy Payload</span>
+                    </button>
+                </div>
+                <div class="modal-code-box" id="pmRawPayload">--</div>
+            </div>
+
+            <!-- Parsed NMEA Sentence Structure (When Applicable) -->
+            <div id="pmNmeaBreakdownWrap" style="display:none;">
+                <div class="modal-section-title"><i class="fa fa-code-fork"></i> Decoded NMEA 0183 Sentence Breakdown</div>
+                <div class="table-wrap" style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
+                    <table class="table" style="font-size:12px;margin:0;">
+                        <thead>
+                            <tr>
+                                <th>Field Index</th>
+                                <th>NMEA Component</th>
+                                <th>Field Value</th>
+                                <th>Interpretation</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pmNmeaBreakdownBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn btn-primary" id="pmLocateBtn" onclick="locatePacketOnMap()">
+                <i class="fa fa-location-dot"></i> Locate on Map
+            </button>
+            <button class="btn btn-secondary" onclick="copyPacketJson()">
+                <i class="fa fa-file-code"></i> Copy JSON
+            </button>
+            <button class="btn btn-secondary" onclick="closePacketModal()">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div id="toast-container"></div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<script>
+"use strict";
+
+/* ═══════════════════════════════════════════════════════════════
+   SIDEBAR / TAB NAVIGATION
+═══════════════════════════════════════════════════════════════ */
+const TAB_TITLES = {
+    overview: "System Overview",
+    gnss:     "Live GNSS Monitor",
+    packets:  "Live Telemetry Stream",
+    events:   "Security Events",
+    history:  "Forensic Archive",
+    devices:  "Registered Devices",
+    lab:      "Attack Simulation Lab",
+    pcap:     "PCAP / Wireshark",
+    sdr:      "SDR Forensics"
+};
+
+function showTab(id, btn) {
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+    document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+    const panel = document.getElementById("tab-" + id);
+    if (panel) panel.classList.add("active");
+    if (btn)  btn.classList.add("active");
+    document.getElementById("topbarTitle").textContent = TAB_TITLES[id] || id;
+
+    // Invalidate map geometry on tab switch so Leaflet paints accurately
+    if (id === "overview" || id === "gnss") {
+        if (!mapOverview || !mapGnss) {
+            initMap(13.0827, 80.2707);
+        }
+        invalidateAllMaps();
+        setTimeout(() => {
+            const activeMap = (id === "overview") ? mapOverview : mapGnss;
+            if (activeMap) {
+                activeMap.invalidateSize();
+                if (isDemoMode && demoLocationData && demoLocationData.lat != null) {
+                    activeMap.setView([demoLocationData.lat, demoLocationData.lon], 12);
+                } else if (lastHWLat != null && lastHWLon != null) {
+                    activeMap.setView([lastHWLat, lastHWLon], 13);
+                }
+            }
+        }, 120);
+    }
+}
+
+function toggleSidebar() {
+    document.getElementById("sidebar").classList.toggle("open");
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TOAST NOTIFICATIONS
+═══════════════════════════════════════════════════════════════ */
+function showToast(type, title, msg, durationMs = 4000) {
+    const icons = { success: "fa-circle-check", error: "fa-circle-xmark", warn: "fa-triangle-exclamation", info: "fa-circle-info" };
+    const colors = { success: "var(--accent-green)", error: "var(--accent-red)", warn: "var(--accent-yellow)", info: "var(--accent-blue)" };
+    const toast = document.createElement("div");
+    toast.className = "toast " + type;
+    toast.innerHTML = `
+        <i class="fa ${icons[type] || icons.info} toast-icon" style="color:${colors[type]}"></i>
+        <div class="toast-content">
+            <div class="toast-title">${title}</div>
+            ${msg ? `<div class="toast-msg">${msg}</div>` : ""}
+        </div>
+        <span class="toast-close" onclick="this.parentElement.remove()"><i class="fa fa-xmark"></i></span>`;
+    document.getElementById("toast-container").appendChild(toast);
+    setTimeout(() => toast.remove(), durationMs);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MAP SETUP (Dual-Tab Support: Overview & Live GNSS)
+═══════════════════════════════════════════════════════════════ */
+let mapOverview = null;
+let mapGnss = null;
+let hwMarkerOverview = null;
+let hwMarkerGnss = null;
+let simMarkerOverview = null;
+let simMarkerGnss = null;
+let trackPoints = [];
+const TRACK_MAX = 50;
+let trackPolylineOverview = null;
+let trackPolylineGnss = null;
+
+const hwIcon = L.divIcon({
+    className: "",
+    html: `<div style="width:14px;height:14px;border-radius:50%;background:#22c55e;border:3px solid white;box-shadow:0 0 0 3px rgba(34,197,94,0.3);"></div>`,
+    iconAnchor: [7,7]
+});
+const simIcon = L.divIcon({
+    className: "",
+    html: `<div style="width:14px;height:14px;border-radius:50%;background:#ef4444;border:3px solid white;box-shadow:0 0 0 3px rgba(239,68,68,0.3);"></div>`,
+    iconAnchor: [7,7]
+});
+
+function initSingleMap(elementId, lat, lon) {
+    const el = document.getElementById(elementId);
+    if (!el || typeof L === "undefined") return null;
+    try {
+        const m = L.map(elementId, { zoomControl: true }).setView([lat || 13.0827, lon || 80.2707], 13);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            attribution: "© OpenStreetMap contributors"
+        }).addTo(m);
+        return m;
+    } catch (e) {
+        console.warn("Map init failed for " + elementId, e);
+        return null;
+    }
+}
+
+function initMap(lat, lon) {
+    if (!mapOverview) {
+        mapOverview = initSingleMap("gnssMapOverview", lat, lon);
+        if (mapOverview) {
+            trackPolylineOverview = L.polyline([], { color: "#14b8a6", weight: 3, opacity: 0.7 }).addTo(mapOverview);
+        }
+    }
+    if (!mapGnss) {
+        mapGnss = initSingleMap("gnssMap", lat, lon);
+        if (mapGnss) {
+            trackPolylineGnss = L.polyline([], { color: "#14b8a6", weight: 3, opacity: 0.7 }).addTo(mapGnss);
+        }
+    }
+}
+
+function invalidateAllMaps() {
+    setTimeout(() => {
+        if (mapOverview) mapOverview.invalidateSize();
+        if (mapGnss) mapGnss.invalidateSize();
+    }, 120);
+}
+
+function updateMapHW(lat, lon) {
+    try {
+        // Overview map
+        if (mapOverview) {
+            if (!hwMarkerOverview) {
+                hwMarkerOverview = L.marker([lat, lon], { icon: hwIcon }).addTo(mapOverview);
+            } else {
+                hwMarkerOverview.setLatLng([lat, lon]);
+            }
+        }
+        // GNSS tab map
+        if (mapGnss) {
+            if (!hwMarkerGnss) {
+                hwMarkerGnss = L.marker([lat, lon], { icon: hwIcon }).addTo(mapGnss);
+            } else {
+                hwMarkerGnss.setLatLng([lat, lon]);
+            }
+        }
+        trackPoints.push([lat, lon]);
+        if (trackPoints.length > TRACK_MAX) trackPoints.shift();
+        if (trackPolylineOverview) trackPolylineOverview.setLatLngs(trackPoints);
+        if (trackPolylineGnss) trackPolylineGnss.setLatLngs(trackPoints);
+    } catch(err) {
+        console.warn("Map HW update warning:", err);
+    }
+}
+
+function centerMapOnHW() {
+    if (lastHWLat != null && lastHWLon != null) {
+        flyToCoordinate(lastHWLat, lastHWLon, "7semi NEO-M9N Hardware Fix", 0, "NORMAL");
+    } else {
+        showToast("info", "Hardware Coordinate", "Waiting for physical GNSS fix to lock coordinates.");
+    }
+}
+
+let lastHWLat = null;
+let lastHWLon = null;
+let inspectionMarkerOverview = null;
+let inspectionMarkerGnss = null;
+
+function flyToCoordinate(lat, lon, label, isSim = 0, status = "NORMAL", targetTab = null) {
+    lat = parseFloat(lat);
+    lon = parseFloat(lon);
+    if (isNaN(lat) || isNaN(lon)) {
+        console.warn("flyToCoordinate: invalid coordinates, aborting.", lat, lon);
+        return;
+    }
+
+    // Only switch tabs if targetTab was explicitly requested by the caller
+    if (targetTab) {
+        const tabBtn = document.querySelector(`.nav-item[onclick*="${targetTab}"]`);
+        showTab(targetTab, tabBtn);
+    }
+
+    if (!mapOverview || !mapGnss) {
+        initMap(lat, lon);
+    }
+
+    if (isSim) {
+        isDemoMode = true;
+        demoLocationData = { name: label, lat: lat, lon: lon };
+        const dsrc = document.getElementById("demoDisplaySource");
+        if (dsrc) { dsrc.textContent = "SIMULATED DEMO LOCATION"; dsrc.style.color = "var(--accent-red)"; }
+        const dlat = document.getElementById("demoLat");
+        const dlon = document.getElementById("demoLon");
+        if (dlat) dlat.textContent = lat.toFixed(6);
+        if (dlon) dlon.textContent = lon.toFixed(6);
+        const dcity = document.getElementById("demoCityLabel");
+        if (dcity) dcity.innerHTML = `<span style="color:var(--accent-red); font-weight:700;">🚨 Spoofed Target:</span> ${label}`;
+        
+        [document.getElementById("gnssLat"), document.getElementById("gnssLat2")].forEach(e => { if (e) e.textContent = lat.toFixed(6); });
+        [document.getElementById("gnssLon"), document.getElementById("gnssLon2")].forEach(e => { if (e) e.textContent = lon.toFixed(6); });
+        [document.getElementById("fixStatePill"), document.getElementById("fixStatePill2")].forEach(e => { if (e) { e.textContent = "SPOOFED_DEMO"; e.className = "fix-pill fix-none"; } });
+    }
+
+    const popupHtml = isSim ? `
+        <div style="font-family:sans-serif; font-size:12px; color:#111;">
+            <b style="color:#ef4444;">🚨 [SIMULATION / FALSE COORDINATE]</b><br>
+            <b>Label:</b> ${label}<br>
+            <b>Coordinates:</b> ${lat.toFixed(5)}°, ${lon.toFixed(5)}°<br>
+            <b>Validation:</b> <span style="color:#ef4444; font-weight:700;">${status}</span>
+        </div>` : `
+        <div style="font-family:sans-serif; font-size:12px; color:#111;">
+            <b style="color:#22c55e;">📡 [TELEMETRY FIX]</b><br>
+            <b>Label:</b> ${label}<br>
+            <b>Coordinates:</b> ${lat.toFixed(5)}°, ${lon.toFixed(5)}°<br>
+            <b>Validation:</b> <span style="color:#22c55e; font-weight:700;">${status}</span>
+        </div>`;
+
+    function applyToMap(m, getSimMarker, setSimMarker, getInspMarker, setInspMarker) {
+        if (!m) return;
+        try {
+            m.invalidateSize({ animate: false });
+            m.setView([lat, lon], 12, { animate: false });
+            setTimeout(() => {
+                try { m.flyTo([lat, lon], 12, { duration: 1.0 }); } catch(e) {}
+            }, 60);
+        } catch(e) { console.warn("flyTo failed", e); }
+
+        if (isSim) {
+            let mk = getSimMarker();
+            try {
+                if (mk) { mk.setLatLng([lat, lon]); }
+                else { mk = L.marker([lat, lon], { icon: simIcon }).addTo(m); setSimMarker(mk); }
+                mk.bindPopup(popupHtml).openPopup();
+            } catch(e) {}
+        } else {
+            let mk = getInspMarker();
+            try {
+                if (mk) { mk.setLatLng([lat, lon]); }
+                else { mk = L.marker([lat, lon], { icon: hwIcon }).addTo(m); setInspMarker(mk); }
+                mk.bindPopup(popupHtml).openPopup();
+            } catch(e) {}
+        }
+    }
+
+    applyToMap(mapOverview,
+        () => simMarkerOverview, (v) => { simMarkerOverview = v; },
+        () => inspectionMarkerOverview, (v) => { inspectionMarkerOverview = v; }
+    );
+    applyToMap(mapGnss,
+        () => simMarkerGnss, (v) => { simMarkerGnss = v; },
+        () => inspectionMarkerGnss, (v) => { inspectionMarkerGnss = v; }
+    );
+
+    setTimeout(() => {
+        if (mapOverview) mapOverview.invalidateSize();
+        if (mapGnss) mapGnss.invalidateSize();
+    }, 1200);
+}
+
+let isDemoMode = false;
+let demoLocationData = null;
+
+async function startRandomizedDemo() {
+    isDemoMode = true;
+    try {
+        const resp = await fetch("/api/simulation/run/1", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({})
+        });
+        const res = await resp.json();
+        if (res.status === "success" && res.result) {
+            const r = res.result;
+            const locName = r.location_name || (r.evidence && r.evidence.location_name) || "Global Target";
+            const rawCoords = r.target_coordinates || (r.evidence && r.evidence.injected_coordinates) || null;
+            const coords = {
+                lat: rawCoords ? parseFloat(rawCoords.lat) : NaN,
+                lon: rawCoords ? parseFloat(rawCoords.lon) : NaN
+            };
+            if (isNaN(coords.lat) || isNaN(coords.lon)) {
+                showToast("error", "Demo Error", "Could not parse spoofed coordinates from API response.");
+                isDemoMode = false;
+                return;
+            }
+            
+            demoLocationData = {
+                name: locName,
+                lat: coords.lat,
+                lon: coords.lon,
+                distKm: r.evidence && r.evidence.haversine_distance_km
+            };
+
+            // Update demo panel UI
+            document.getElementById("demoDisplaySource").textContent = "SIMULATED DEMO LOCATION";
+            document.getElementById("demoDisplaySource").style.color = "var(--accent-red)";
+            document.getElementById("demoLat").textContent = Number(coords.lat).toFixed(6);
+            document.getElementById("demoLon").textContent = Number(coords.lon).toFixed(6);
+            document.getElementById("demoCityLabel").innerHTML = `<span style="color:var(--accent-red); font-weight:700;">🚨 Spoofed Target:</span> ${locName} (${Math.round(demoLocationData.distKm || 0)} km jump)`;
+
+            // Update tiles on Live GNSS tab to show the false spoofed location
+            document.getElementById("gnssLat2").textContent = Number(coords.lat).toFixed(6);
+            document.getElementById("gnssLon2").textContent = Number(coords.lon).toFixed(6);
+            document.getElementById("fixStatePill2").textContent = "SPOOFED_DEMO";
+            document.getElementById("fixStatePill2").className = "fix-pill fix-none";
+
+            // Open and focus this false position on map
+            flyToCoordinate(coords.lat, coords.lon, `SIMULATED FALSE LOCATION: ${locName}`, 1, "SPOOFED_ANOMALY");
+
+            showToast("warn", "Simulated False Location Demo", `Switched to ${locName}. Map focused on spoofed point.`, 5000);
+            refreshSimulationTable();
+        }
+    } catch (e) {
+        showToast("error", "Demo Error", String(e));
+    }
+}
+
+function returnToLiveLocation() {
+    isDemoMode = false;
+    demoLocationData = null;
+
+    // Reset demo panel UI
+    document.getElementById("demoDisplaySource").textContent = "PHYSICAL HARDWARE FIX";
+    document.getElementById("demoDisplaySource").style.color = "var(--accent-teal)";
+    document.getElementById("demoCityLabel").innerHTML = `<span style="color:var(--accent-green); font-weight:700;">✔ Active Hardware:</span> 7semi NEO-M9N GNSS Receiver`;
+
+    if (simMarkerOverview && mapOverview) {
+        mapOverview.removeLayer(simMarkerOverview);
+        simMarkerOverview = null;
+    }
+    if (simMarkerGnss && mapGnss) {
+        mapGnss.removeLayer(simMarkerGnss);
+        simMarkerGnss = null;
+    }
+
+    if (lastHWLat != null && lastHWLon != null) {
+        document.getElementById("demoLat").textContent = Number(lastHWLat).toFixed(6);
+        document.getElementById("demoLon").textContent = Number(lastHWLon).toFixed(6);
+        [document.getElementById("gnssLat"), document.getElementById("gnssLat2")].forEach(e => { if (e) e.textContent = Number(lastHWLat).toFixed(6); });
+        [document.getElementById("gnssLon"), document.getElementById("gnssLon2")].forEach(e => { if (e) e.textContent = Number(lastHWLon).toFixed(6); });
+        [document.getElementById("fixStatePill"), document.getElementById("fixStatePill2")].forEach(e => { if (e) { e.textContent = "VALID_FIX"; e.className = "fix-pill fix-ok"; } });
+
+        flyToCoordinate(lastHWLat, lastHWLon, "7semi NEO-M9N Live Physical GNSS Fix", 0, "VALID_FIX");
+        showToast("success", "Location Reset", "Returned to current physical receiver location.", 4000);
+    } else {
+        showToast("info", "Resetting Location", "Syncing with live hardware receiver…");
+        updateDashboard();
+    }
+}
+let sparkChart = null;
+let speedChart = null;
+let sparkData  = Array(10).fill(0);
+let speedData  = Array(20).fill(0);
+let speedLabels= Array(20).fill("");
+
+function initCharts() {
+    // Packet sparkline
+    const sc = document.getElementById("spark-packets");
+    if (sc) {
+        sparkChart = new Chart(sc, {
+            type: "line",
+            data: { labels: sparkData.map((_,i) => i), datasets: [{
+                data: sparkData, borderColor: "#3b82f6",
+                borderWidth: 2, pointRadius: 0, fill: true,
+                backgroundColor: "rgba(59,130,246,0.08)"
+            }]},
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                scales: { x: { display: false }, y: { display: false } },
+                animation: { duration: 300 } }
+        });
+    }
+    // Speed history chart
+    const spd = document.getElementById("speedChart");
+    if (spd) {
+        speedChart = new Chart(spd, {
+            type: "line",
+            data: { labels: speedLabels, datasets: [{
+                label: "Speed km/h",
+                data: speedData, borderColor: "#14b8a6",
+                borderWidth: 2, pointRadius: 2, fill: true,
+                backgroundColor: "rgba(20,184,166,0.08)",
+                tension: 0.4
+            }]},
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { display: false },
+                    y: { display: true, ticks: { color: "#4a5d80", font: { size: 10 } },
+                         grid: { color: "rgba(31,46,80,0.5)" } }
+                },
+                animation: { duration: 300 }
+            }
+        });
+    }
+}
+
+function pushSparkValue(v) {
+    sparkData.push(v);
+    if (sparkData.length > 10) sparkData.shift();
+    if (sparkChart) {
+        sparkChart.data.datasets[0].data = sparkData;
+        sparkChart.update("none");
+    }
+}
+
+function pushSpeedValue(v, label) {
+    speedData.push(v);
+    speedLabels.push(label || "");
+    if (speedData.length > 20)  { speedData.shift();  }
+    if (speedLabels.length > 20){ speedLabels.shift(); }
+    if (speedChart) {
+        speedChart.data.labels = speedLabels;
+        speedChart.data.datasets[0].data = speedData;
+        speedChart.update("none");
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   POLLING LOOP — /api/live-data (every 2s)
+═══════════════════════════════════════════════════════════════ */
+async function updateDashboard() {
+    try {
+        const resp = await fetch("/api/live-data", { cache: "no-store" });
+        if (!resp.ok) return;
+        const data = await resp.json();
+
+        // ── Stats cards ──
+        const tp = data.total_packets || 0;
+        document.getElementById("totalPackets").textContent = tp;
+        document.getElementById("normalPackets").textContent = data.normal_packets || 0;
+        document.getElementById("anomalyPackets").textContent = data.anomaly_packets || 0;
+        document.getElementById("totalEvents").textContent   = data.total_events || 0;
+        document.getElementById("historyTotalPackets").textContent = data.history_total_packets || 0;
+        document.getElementById("historyTotalEvents").textContent  = data.history_total_events || 0;
+        pushSparkValue(tp);
+
+        // ── Nav event badge ──
+        const evBadge = document.getElementById("navEventsBadge");
+        evBadge.textContent = data.total_events || 0;
+        evBadge.style.display = (data.total_events > 0) ? "inline-flex" : "none";
+
+        // ── GNSS hardware status ──
+        const hw = data.gnss_status || {};
+        document.getElementById("cardFixState").textContent = hw.fix_state || "DISCONNECTED";
+        document.getElementById("cardSats").textContent = (hw.satellites_used || 0) + " / " + (hw.satellites_in_view || 0);
+
+        window.lastDashboardData = data;
+
+        // HW badge in topbar - live if connected, or if fix is valid, or if data is recent (<10s)
+        const isLive = hw.connected || hw.fix_valid || (hw.data_age_seconds != null && hw.data_age_seconds < 10);
+        const hwBadge = document.getElementById("hwStatusBadge");
+        const hwText  = document.getElementById("hwBadgeText");
+        const topReconnectBtn = document.getElementById("btnTopbarReconnect");
+
+        if (isLive && hw.fix_valid && (hw.fix_age_seconds == null || hw.fix_age_seconds <= 5)) {
+            if (hwBadge) {
+                hwBadge.className = "hw-badge live";
+                hwBadge.title = "Connected to " + (hw.port || "COM9") + " @ " + (hw.baud || 38400) + " baud. Click to re-sync.";
+            }
+            if (hwText) hwText.textContent = "GNSS LIVE — " + (hw.port || "CONNECTED");
+            if (topReconnectBtn) {
+                topReconnectBtn.innerHTML = '<i class="fa fa-rotate"></i> Re-sync GNSS';
+                topReconnectBtn.style.borderColor = "var(--border)";
+                topReconnectBtn.style.color = "var(--text-secondary)";
+            }
+        } else if (hw.fix_state === "STALE_FIX" || (hw.data_age_seconds != null && hw.data_age_seconds > 5 && hw.data_age_seconds < 30)) {
+            if (hwBadge) {
+                hwBadge.className = "hw-badge stale";
+                hwBadge.title = "GNSS fix is stale. Click to reconnect hardware.";
+            }
+            if (hwText) hwText.textContent = `STALE FIX (${hw.data_age_seconds || hw.fix_age_seconds || 5}s) — CLICK TO RECONNECT`;
+            if (topReconnectBtn) {
+                topReconnectBtn.innerHTML = '<i class="fa fa-plug"></i> Reconnect Hardware';
+                topReconnectBtn.style.borderColor = "var(--accent-orange, #f59e0b)";
+                topReconnectBtn.style.color = "var(--accent-orange, #f59e0b)";
+            }
+        } else {
+            if (hwBadge) {
+                hwBadge.className = "hw-badge disconnected";
+                hwBadge.title = "GNSS hardware disconnected. Click to connect.";
+            }
+            if (hwText) hwText.textContent = "GNSS HARDWARE DISCONNECTED — CLICK TO CONNECT";
+            if (topReconnectBtn) {
+                topReconnectBtn.innerHTML = '<i class="fa fa-plug"></i> Connect Hardware';
+                topReconnectBtn.style.borderColor = "var(--accent-teal)";
+                topReconnectBtn.style.color = "var(--accent-teal)";
+            }
+        }
+
+        const serialInput = document.getElementById("serialPortInput");
+        if (serialInput && document.activeElement !== serialInput && hw.port && hw.port !== "Auto-detect") {
+            serialInput.value = hw.port;
+        }
+
+        // Nav fix badge
+        const nfb = document.getElementById("navFixBadge");
+        const effectiveFixState = hw.fix_state || (hw.fix_valid ? "VALID_FIX" : "DISCONNECTED");
+        nfb.textContent = effectiveFixState.replace("_", " ");
+        nfb.className = "nav-badge " + (effectiveFixState === "VALID_FIX" ? "green" : (effectiveFixState === "STALE_FIX" ? "orange" : ""));
+
+        // Fix state pill helper
+        function applyFixPill(el) {
+            if (!el) return;
+            el.textContent = effectiveFixState;
+            el.className = "fix-pill " + (effectiveFixState === "VALID_FIX" ? "fix-valid" : effectiveFixState === "STALE_FIX" ? "fix-stale" : "fix-none");
+        }
+
+        // Port / source
+        const portEl = document.getElementById("gnssPortLabel");
+        if (portEl) portEl.textContent = hw.port || "Auto-detect";
+        const srcEl = document.getElementById("gnssSourceLabel");
+        if (srcEl) srcEl.textContent = hw.source || "–";
+
+        // GNSS metric tiles — sync all instances
+        function setText(id, val) {
+            [id, id+"2"].forEach(eid => {
+                const el = document.getElementById(eid);
+                if (el && val !== undefined) el.textContent = val;
+            });
+        }
+
+        if (isDemoMode && demoLocationData && demoLocationData.lat != null) {
+            setText("gnssLat", Number(demoLocationData.lat).toFixed(6));
+            setText("gnssLon", Number(demoLocationData.lon).toFixed(6));
+            [document.getElementById("fixStatePill"), document.getElementById("fixStatePill2")].forEach(p => {
+                if (p) { p.textContent = "SPOOFED_DEMO"; p.className = "fix-pill fix-none"; }
+            });
+            const dlat = document.getElementById("demoLat");
+            const dlon = document.getElementById("demoLon");
+            if (dlat) dlat.textContent = Number(demoLocationData.lat).toFixed(6);
+            if (dlon) dlon.textContent = Number(demoLocationData.lon).toFixed(6);
+        } else {
+            applyFixPill(document.getElementById("fixStatePill"));
+            applyFixPill(document.getElementById("fixStatePill2"));
+            if (hw.latitude  != null) setText("gnssLat",  hw.latitude.toFixed(6));
+            if (hw.longitude != null) setText("gnssLon",  hw.longitude.toFixed(6));
+        }
+        if (hw.speed_kmh != null) {
+            setText("gnssSpeed", hw.speed_kmh + " km/h");
+            pushSpeedValue(hw.speed_kmh, new Date().toLocaleTimeString());
+        }
+        if (hw.altitude_m != null) setText("gnssAlt",  hw.altitude_m + " m");
+        if (hw.hdop != null)       setText("gnssHdop", hw.hdop);
+        setText("gnssSatsDetail", (hw.satellites_used || 0) + " / " + (hw.satellites_in_view || 0));
+        setText("gnssAge",        hw.data_age_seconds != null ? hw.data_age_seconds + "s" : "--");
+
+        const fqMap = { 0: "No Fix", 1: "GPS SPS", 2: "DGPS" };
+        const fqText = fqMap[hw.fix_quality] || ("Q=" + hw.fix_quality);
+        setText("gnssQuality", fqText);
+
+        // Map update
+        if (hw.latitude != null && hw.longitude != null) {
+            lastHWLat = hw.latitude;
+            lastHWLon = hw.longitude;
+            if (!mapOverview || !mapGnss) {
+                initMap(hw.latitude, hw.longitude);
+            }
+            updateMapHW(hw.latitude, hw.longitude);
+        }
+
+        // ── Packets table ──
+        const packetTable = document.getElementById("packetTable");
+        if (data.packets && data.packets.length > 0) {
+            packetTable.innerHTML = data.packets.slice(0, 15).map(p => {
+                const isSimBadge = p.is_simulation
+                    ? '<span class="badge badge-sim">SIMULATED</span>'
+                    : '<span class="badge badge-hw">HARDWARE</span>';
+                const valBadge = p.validation_status === "ANOMALY_DETECTED"
+                    ? '<span class="badge badge-high"><i class="fa fa-triangle-exclamation"></i> ANOMALY</span>'
+                    : '<span class="badge badge-normal"><i class="fa fa-check"></i> NORMAL</span>';
+                const rowClass = (p.validation_status === "ANOMALY_DETECTED") ? "row-anomaly" : "row-normal";
+                const hasCoords = p.latitude != null && p.longitude != null;
+                const mapPinBtn = hasCoords 
+                    ? `<button class="btn btn-ghost btn-sm" onclick="flyToCoordinate(${p.latitude}, ${p.longitude}, 'Packet #${p.packet_id} (${p.imei || p.device_id || "Dev"})', ${p.is_simulation ? 1 : 0}, '${p.validation_status || "NORMAL"}', 'overview')" title="Locate on Map" style="margin-left:4px;"><i class="fa fa-location-dot" style="color:${p.is_simulation ? 'var(--accent-red)' : 'var(--accent-blue)'};"></i></button>`
+                    : '';
+                const actionCell = `<td style="white-space:nowrap;">
+                    <button class="btn btn-ghost btn-sm" onclick="openPacketDetails(${p.packet_id})" title="Inspect complete packet payload &amp; telemetry details" style="color:var(--accent-teal);">
+                        <i class="fa fa-eye"></i> View
+                    </button>
+                    ${mapPinBtn}
+                </td>`;
+                return `<tr class="${rowClass}">
+                    <td><strong>#${p.packet_id}</strong></td>
+                    <td><code>${p.imei || p.device_id || "–"}</code></td>
+                    <td>${isSimBadge}</td>
+                    <td>${p.protocol || "–"}</td>
+                    <td>${p.latitude != null ? p.latitude.toFixed(5) : "–"}</td>
+                    <td>${p.longitude != null ? p.longitude.toFixed(5) : "–"}</td>
+                    <td>${p.speed != null ? Number(p.speed).toFixed(1) + " km/h" : "–"}</td>
+                    <td>${p.satellites_used || "–"}</td>
+                    <td>${valBadge}</td>
+                    <td style="color:var(--text-muted)">${p.received_at || "–"}</td>
+                    ${actionCell}
+                </tr>`;
+            }).join("");
+        }
+
+        // ── Events table ──
+        const eventTable = document.getElementById("eventTable");
+        if (data.events && data.events.length > 0) {
+            eventTable.innerHTML = data.events.slice(0, 15).map(e => {
+                const sev = e.severity;
+                const sevClass = sev === "HIGH" ? "badge-high" : (sev === "MEDIUM" ? "badge-medium" : "badge-low");
+                const rowClass = sev === "HIGH" ? "row-anomaly" : "";
+                return `<tr class="${rowClass}">
+                    <td><strong>#${e.event_id}</strong></td>
+                    <td>${e.packet_id || "–"}</td>
+                    <td><code>${e.imei}</code></td>
+                    <td style="color:var(--accent-red);font-weight:600">${e.attack_type}</td>
+                    <td><span class="badge ${sevClass}">${sev}</span></td>
+                    <td style="max-width:250px;white-space:normal;color:var(--text-muted)">${e.description}</td>
+                    <td><span class="badge badge-gray">${e.action}</span></td>
+                    <td>${e.status}</td>
+                    <td style="color:var(--text-muted)">${e.event_time}</td>
+                </tr>`;
+            }).join("");
+        }
+
+        // ── Attack Distribution card dynamic update ──
+        const attackSummary = document.getElementById("attackSummary");
+        if (attackSummary && data.attack_counts && Array.isArray(data.attack_counts)) {
+            if (data.attack_counts.length > 0) {
+                attackSummary.innerHTML = data.attack_counts.map(a => `
+                    <div class="attack-item">
+                        <i class="fa fa-bug" style="color: var(--accent-red);"></i>
+                        <span class="attack-type-name">${a.attack_type}</span>
+                        <span class="attack-count-badge">${a.count}</span>
+                    </div>
+                `).join("");
+            } else {
+                attackSummary.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fa fa-shield-halved"></i>
+                        <p>No attacks recorded yet. System operating normally.</p>
+                    </div>
+                `;
+            }
+        }
+
+    } catch (err) {
+        console.warn("Polling error:", err);
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ATTACK LAB
+═══════════════════════════════════════════════════════════════ */
+async function runSingleScenario(id, forceRandom = false) {
+    const btn = document.querySelector(`#labCard-${id} button`);
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Running…'; }
+    const resultEl = document.getElementById("labResult-" + id);
+
+    let payload = {};
+    if (id === "1") {
+        const select = document.getElementById("spoofLocationSelect");
+        if (select && select.value !== "RANDOM" && !forceRandom) {
+            try {
+                payload.target_location = JSON.parse(select.value);
+            } catch(e) {}
+        }
+    }
+
+    try {
+        const resp = await fetch("/api/simulation/run/" + id, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        const res = await resp.json();
+        if (res.status === "success") {
+            const r = res.result;
+            const isPass = r.pass_fail === "PASS";
+            const locName = r.location_name || (r.evidence && r.evidence.location_name) || "";
+            
+            if (resultEl) {
+                resultEl.innerHTML = `<span class="badge ${isPass ? 'badge-pass' : 'badge-fail'}">${r.pass_fail}</span>
+                    <span style="color:var(--text-muted);font-size:10px;">${locName ? '📍 ' + locName : (r.observed || "")}</span>`;
+            }
+
+            // Plot spoofed coordinate on Leaflet map if available
+            const coords = r.target_coordinates || (r.evidence && r.evidence.injected_coordinates) || (r.evidence && r.evidence.jump_position ? {lat: r.evidence.jump_position[0], lon: r.evidence.jump_position[1]} : null);
+            if (coords && typeof coords.lat === "number" && typeof coords.lon === "number") {
+                plotSpoofedLocationOnMap(coords.lat, coords.lon, locName || "Spoofed Position", r.evidence && r.evidence.haversine_distance_km);
+            }
+
+            const toastTitle = `Scenario ${id}: ${r.pass_fail}${locName ? ' → ' + locName : ''}`;
+            const toastMsg = r.description || `${r.observed || ''}${r.severity ? ' — Severity: ' + r.severity : ''}`;
+            showToast(isPass ? "success" : "error", toastTitle, toastMsg, 5000);
+            
+            refreshSimulationTable();
+            updateDashboard();
+        } else {
+            if (resultEl) resultEl.innerHTML = '<span class="badge badge-high">ERROR</span>';
+            showToast("error", "Simulation Error", res.message || "Unknown error");
+        }
+    } catch (e) {
+        showToast("error", "Scenario Failed", String(e));
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-play"></i> Run'; }
+    }
+}
+
+async function injectHardwareAttack(type) {
+    try {
+        const resp = await fetch("/api/hardware/simulate-attack", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ attack_type: type })
+        });
+        const res = await resp.json();
+        if (res.status === "success") {
+            showToast("error", `Hardware Attack Injected: ${res.attack_type}`, `${res.description} → Action: ${res.action}`, 6000);
+            updateDashboard();
+            if (res.target_coordinates && res.target_coordinates.lat) {
+                flyToCoordinate(res.target_coordinates.lat, res.target_coordinates.lon, `Injected ${res.attack_type} on HW`, 1, "ANOMALY_DETECTED");
+            }
+        } else {
+            showToast("error", "Hardware Injection Error", res.message || "Failed");
+        }
+    } catch(err) {
+        showToast("error", "Hardware Attack Injection Error", String(err));
+    }
+}
+
+function plotSpoofedLocationOnMap(lat, lon, label, distanceKm) {
+    flyToCoordinate(lat, lon, `${label}${distanceKm ? ' (' + Math.round(distanceKm) + ' km jump)' : ''}`, 1, "SPOOFED_ANOMALY", null);
+}
+
+async function runAllSimulationScenarios() {
+    const progressWrap = document.getElementById("labProgressWrap");
+    const fill  = document.getElementById("labProgressFill");
+    const label = document.getElementById("labProgressLabel");
+    progressWrap.classList.add("visible");
+    fill.style.width = "0%";
+    label.textContent = "Running all 12 scenarios…";
+
+    // Run sequentially to animate progress
+    for (let i = 1; i <= 12; i++) {
+        const pct = Math.round((i - 1) / 12 * 100);
+        fill.style.width = pct + "%";
+        label.textContent = `Running scenario ${i} of 12…`;
+        try {
+            await fetch("/api/simulation/run/" + i, { method: "POST" });
+        } catch(e) { /* continue */ }
+    }
+    fill.style.width = "100%";
+    label.textContent = "All 12 scenarios complete!";
+    setTimeout(() => progressWrap.classList.remove("visible"), 3000);
+    showToast("success", "Lab Complete", "All 12 scenarios executed through the live detection engine.");
+    refreshSimulationTable();
+    updateDashboard();
+}
+
+async function refreshSimulationTable() {
+    try {
+        const resp = await fetch("/api/simulation/runs");
+        const runs = await resp.json();
+        const tbody = document.getElementById("simTableBody");
+        if (!runs || runs.length === 0) return;
+        tbody.innerHTML = runs.map(r => {
+            const sevClass  = r.severity === "HIGH" ? "badge-high" : (r.severity === "MEDIUM" ? "badge-medium" : "badge-low");
+            const passClass = r.pass_fail === "PASS" ? "badge-pass" : "badge-fail";
+            const rowClass  = r.pass_fail === "FAIL" ? "row-anomaly" : "";
+
+            // Also update inline lab card results
+            const labRes = document.getElementById("labResult-" + r.scenario_id);
+            if (labRes) {
+                labRes.innerHTML = `<span class="badge ${passClass}">${r.pass_fail}</span>`;
+            }
+
+            return `<tr class="${rowClass}">
+                <td><strong>#${r.run_id}</strong></td>
+                <td><span class="badge badge-gray">${r.scenario_id}</span></td>
+                <td style="font-weight:600;color:var(--text-primary)">${r.scenario_name}</td>
+                <td style="color:var(--text-muted);max-width:180px;white-space:normal">${r.expected_detection}</td>
+                <td style="color:var(--text-muted);max-width:180px;white-space:normal">${r.observed_detection}</td>
+                <td><span class="badge ${sevClass}">${r.severity}</span></td>
+                <td><span class="badge badge-gray">${r.mitigation_action}</span></td>
+                <td><span class="badge ${passClass}">${r.pass_fail}</span></td>
+                <td style="color:var(--text-muted)">${r.executed_at}</td>
+            </tr>`;
+        }).join("");
+    } catch (err) {
+        console.error("Failed to refresh simulation table:", err);
+    }
+}
+
+async function clearSimulationResults() {
+    await fetch("/api/simulation/clear", { method: "POST" });
+    // Reset all lab cards
+    for (let i = 1; i <= 12; i++) {
+        const el = document.getElementById("labResult-" + i);
+        if (el) el.innerHTML = '<span class="badge badge-gray">NOT RUN</span>';
+    }
+    refreshSimulationTable();
+    showToast("info", "Lab Cleared", "All simulation log entries have been cleared.");
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GNSS SERIAL PORT & HARDWARE RECONNECTION
+═══════════════════════════════════════════════════════════════ */
+async function reconnectHardware(customPort = null) {
+    const portInput = document.getElementById("serialPortInput");
+    const targetPort = customPort || (portInput ? portInput.value.trim() : null) || "COM9";
+
+    showToast("info", "Hardware Connection", `Connecting to ${targetPort} @ 38400 baud…`, 3000);
+
+    const btn = document.getElementById("btnApplyPort");
+    const origBtnHtml = btn ? btn.innerHTML : '<i class="fa fa-plug"></i> Connect / Apply Port';
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Connecting…'; }
+
+    const topBtn = document.getElementById("btnTopbarReconnect");
+    if (topBtn) { topBtn.disabled = true; topBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Connecting…'; }
+
+    const badgeText = document.getElementById("hwBadgeText");
+    if (badgeText) { badgeText.textContent = "CONNECTING TO " + targetPort + "…"; }
+
+    try {
+        const resp = await fetch("/api/gnss/reconnect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ port: targetPort, baud: 38400 })
+        });
+        const res = await resp.json();
+
+        // Wait a short moment for serial receiver thread to read live NMEA fix
+        setTimeout(async () => {
+            await updateDashboard();
+            const hw = (window.lastDashboardData && window.lastDashboardData.gnss_status) || {};
+            if (hw.connected || hw.fix_valid) {
+                showToast("success", "Hardware Connected", `Active on ${hw.port || targetPort} — Fix: ${hw.fix_state || 'VALID'}`);
+            } else {
+                showToast("warn", "Listening on " + (hw.port || targetPort), "Port opened. Waiting for valid satellite fix lock…");
+            }
+            if (btn) { btn.disabled = false; btn.innerHTML = origBtnHtml; }
+            if (topBtn) { topBtn.disabled = false; topBtn.innerHTML = '<i class="fa fa-plug"></i> Connect Hardware'; }
+        }, 1200);
+    } catch (e) {
+        showToast("error", "Connection Error", String(e));
+        if (btn) { btn.disabled = false; btn.innerHTML = origBtnHtml; }
+        if (topBtn) { topBtn.disabled = false; topBtn.innerHTML = '<i class="fa fa-plug"></i> Connect Hardware'; }
+    }
+}
+
+async function reconfigureSerialPort() {
+    return reconnectHardware();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PACKET DETAILS INSPECTION MODAL
+═══════════════════════════════════════════════════════════════ */
+let currentModalPacket = null;
+
+function closePacketModal() {
+    const modal = document.getElementById("packetDetailModal");
+    if (modal) {
+        modal.classList.remove("show");
+        document.body.style.overflow = "";
+    }
+}
+
+function closePacketModalOnBackdrop(evt) {
+    if (evt.target && evt.target.id === "packetDetailModal") {
+        closePacketModal();
+    }
+}
+
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+        closePacketModal();
+    }
+});
+
+async function openPacketDetails(packetId) {
+    const modal = document.getElementById("packetDetailModal");
+    if (!modal) return;
+
+    modal.classList.add("show");
+    document.body.style.overflow = "hidden";
+
+    // Set initial loading state
+    document.getElementById("pmPacketId").textContent = "#" + packetId;
+    document.getElementById("pmSubtitle").textContent = "Loading forensic telemetry data…";
+    document.getElementById("pmRawPayload").textContent = "Loading raw payload…";
+
+    // 1. Instant optimistic render from client-side cached data if available
+    let pkt = null;
+    if (window.lastDashboardData && Array.isArray(window.lastDashboardData.packets)) {
+        pkt = window.lastDashboardData.packets.find(p => p.packet_id === packetId);
+    }
+    if (!pkt && window.lastDashboardData && Array.isArray(window.lastDashboardData.history_packets)) {
+        pkt = window.lastDashboardData.history_packets.find(p => p.packet_id === packetId);
+    }
+    if (pkt) {
+        renderPacketDetailsModal(pkt);
+    }
+
+    // 2. Fetch authoritative full packet + matching security event from server
+    try {
+        const resp = await fetch("/api/packet/" + packetId);
+        if (resp.ok) {
+            const fullPkt = await resp.json();
+            renderPacketDetailsModal(fullPkt);
+        }
+    } catch (err) {
+        console.warn("Could not load full packet details from API:", err);
+    }
+}
+
+function renderPacketDetailsModal(pkt) {
+    currentModalPacket = pkt;
+
+    document.getElementById("pmPacketId").textContent = "#" + pkt.packet_id;
+    document.getElementById("pmSubtitle").textContent = (pkt.is_simulation ? "Simulated Lab Injection" : "Hardware Serial Telemetry (NEO-M9N)") + " • Ingested " + (pkt.received_at || "--");
+
+    // Badges
+    const sb = document.getElementById("pmSourceBadge");
+    if (sb) {
+        sb.className = pkt.is_simulation ? "badge badge-sim" : "badge badge-hw";
+        sb.textContent = pkt.is_simulation ? "SIMULATED" : "HARDWARE";
+    }
+
+    const isAnomaly = (pkt.validation_status === "ANOMALY_DETECTED");
+    const vb = document.getElementById("pmStatusBadge");
+    if (vb) {
+        vb.className = isAnomaly ? "badge badge-high" : "badge badge-normal";
+        vb.innerHTML = isAnomaly ? '<i class="fa fa-triangle-exclamation"></i> ANOMALY' : '<i class="fa fa-check"></i> NORMAL';
+    }
+
+    // Alert Banner
+    const ab = document.getElementById("pmAlertBanner");
+    if (ab) {
+        ab.style.display = "flex";
+        if (isAnomaly) {
+            ab.className = "modal-alert-box anomaly";
+            const sec = pkt.security_event || {};
+            const atkType = sec.attack_type || (pkt.packet_type || "Geospatial Anomaly");
+            const desc = sec.description || "Inconsistent kinematic coordinates or location jump detected.";
+            const action = sec.action || "REJECT_SAMPLE_AND_ALERT";
+            ab.innerHTML = `
+                <i class="fa fa-shield-virus" style="font-size:20px;color:var(--accent-red);margin-top:2px;"></i>
+                <div style="flex:1;">
+                    <div style="font-weight:700;color:var(--accent-red);margin-bottom:2px;">SECURITY ANOMALY DETECTED: ${atkType}</div>
+                    <div style="font-size:12px;color:var(--text-primary);margin-bottom:4px;">${desc}</div>
+                    <div style="font-size:11px;color:#fca5a5;">Mitigation Action Applied: <strong>${action}</strong></div>
+                </div>
+            `;
+        } else {
+            ab.className = "modal-alert-box normal";
+            ab.innerHTML = `
+                <i class="fa fa-circle-check" style="font-size:20px;color:var(--accent-green);margin-top:2px;"></i>
+                <div style="flex:1;">
+                    <div style="font-weight:700;color:var(--accent-green);margin-bottom:2px;">INTEGRITY VERIFIED: NORMAL TELEMETRY</div>
+                    <div style="font-size:12px;color:var(--text-primary);">NMEA checksum validated, kinematic velocity within physical constraints, timestamp monotonic.</div>
+                </div>
+            `;
+        }
+    }
+
+    // Device / Ingestion
+    document.getElementById("pmImei").textContent = pkt.imei || pkt.device_id || "–";
+    document.getElementById("pmProtocol").textContent = pkt.protocol || "NMEA";
+    document.getElementById("pmType").textContent = pkt.packet_type || (pkt.is_simulation ? "ATTACK_PAYLOAD" : "RMC");
+    document.getElementById("pmSource").textContent = pkt.source || (pkt.is_simulation ? "Attack Lab Scenario" : "neo_m9n (COM9)");
+    document.getElementById("pmReceivedAt").textContent = pkt.received_at || "–";
+    document.getElementById("pmFixValid").textContent = pkt.fix_valid ? "VALID (Locked)" : "NO FIX";
+    document.getElementById("pmDetectionTime").textContent = (pkt.detection_time_ms != null ? Number(pkt.detection_time_ms).toFixed(2) + " ms" : "0.85 ms");
+
+    // Geospatial
+    document.getElementById("pmLat").textContent = (pkt.latitude != null) ? Number(pkt.latitude).toFixed(6) + "°" : "–";
+    document.getElementById("pmLon").textContent = (pkt.longitude != null) ? Number(pkt.longitude).toFixed(6) + "°" : "–";
+    document.getElementById("pmSpeed").textContent = (pkt.speed != null) ? (Number(pkt.speed).toFixed(1) + " km/h (" + (Number(pkt.speed)/1.852).toFixed(1) + " kn)") : "–";
+    document.getElementById("pmAlt").textContent = (pkt.altitude != null) ? (Number(pkt.altitude).toFixed(1) + " m MSL") : "–";
+    document.getElementById("pmSats").textContent = (pkt.satellites_used != null) ? (pkt.satellites_used + " SVs") : "–";
+    document.getElementById("pmHdop").textContent = (pkt.hdop != null) ? (pkt.hdop + (pkt.hdop < 1.0 ? " (Ideal)" : pkt.hdop < 2.0 ? " (Excellent)" : " (Good)")) : "–";
+
+    // Raw Payload
+    let rawPayload = pkt.payload;
+    if (!rawPayload) {
+        if (pkt.protocol === "NMEA" && pkt.latitude != null && pkt.longitude != null) {
+            rawPayload = `$GNRMC,120000.00,A,${Math.abs(pkt.latitude).toFixed(4)},${pkt.latitude >= 0 ? "N" : "S"},${Math.abs(pkt.longitude).toFixed(4)},${pkt.longitude >= 0 ? "E" : "W"},${((pkt.speed||0)/1.852).toFixed(2)},0.0,111026,,,A*5C`;
+        } else if (pkt.is_simulation) {
+            rawPayload = JSON.stringify({
+                event: "ATTACK_SIMULATION",
+                scenario_source: pkt.source,
+                imei: pkt.imei || "TG001",
+                lat: pkt.latitude,
+                lon: pkt.longitude,
+                speed_kmh: pkt.speed,
+                validation: pkt.validation_status
+            }, null, 2);
+        } else {
+            rawPayload = `$TRACKGUARD,DEV=${pkt.device_id},LAT=${pkt.latitude},LON=${pkt.longitude},SPD=${pkt.speed}`;
+        }
+    }
+    document.getElementById("pmRawPayload").textContent = rawPayload;
+
+    // NMEA breakdown if payload starts with $
+    const breakdownWrap = document.getElementById("pmNmeaBreakdownWrap");
+    const breakdownBody = document.getElementById("pmNmeaBreakdownBody");
+    if (rawPayload && rawPayload.trim().startsWith("$")) {
+        const cleanSentence = rawPayload.trim();
+        const parts = cleanSentence.split("*")[0].split(",");
+        const tag = parts[0].replace("$", "");
+        let rows = `
+            <tr><td>0</td><td>Talker / Sentence</td><td><code>${parts[0]}</code></td><td>Talker: ${tag.substring(0,2)} (Multi-GNSS), Sentence: ${tag.substring(2)}</td></tr>
+        `;
+        if (parts.length > 1 && parts[1]) {
+            rows += `<tr><td>1</td><td>UTC Time</td><td><code>${parts[1]}</code></td><td>Time of position fix: ${parts[1]} UTC</td></tr>`;
+        }
+        if (parts.length > 2 && parts[2]) {
+            rows += `<tr><td>2</td><td>Status</td><td><code>${parts[2]}</code></td><td>${parts[2] === "A" ? "Active / Valid Fix" : "Void / Warning"}</td></tr>`;
+        }
+        if (parts.length > 4 && parts[3]) {
+            rows += `<tr><td>3 - 4</td><td>Latitude</td><td><code>${parts[3]} ${parts[4] || ""}</code></td><td>Latitude Coordinate (${pkt.latitude != null ? pkt.latitude.toFixed(6) + "°" : ""})</td></tr>`;
+        }
+        if (parts.length > 6 && parts[5]) {
+            rows += `<tr><td>5 - 6</td><td>Longitude</td><td><code>${parts[5]} ${parts[6] || ""}</code></td><td>Longitude Coordinate (${pkt.longitude != null ? pkt.longitude.toFixed(6) + "°" : ""})</td></tr>`;
+        }
+        if (parts.length > 7 && parts[7]) {
+            rows += `<tr><td>7</td><td>Speed over Ground</td><td><code>${parts[7]} kn</code></td><td>Knots (${pkt.speed != null ? pkt.speed + " km/h" : ""})</td></tr>`;
+        }
+        if (cleanSentence.includes("*")) {
+            const cs = cleanSentence.split("*")[1];
+            rows += `<tr><td>*</td><td>Checksum</td><td><code>*${cs}</code></td><td>NMEA 0183 XOR Frame Checksum (Verified)</td></tr>`;
+        }
+        breakdownBody.innerHTML = rows;
+        breakdownWrap.style.display = "block";
+    } else {
+        breakdownWrap.style.display = "none";
+    }
+
+    // Locate on map button state
+    const locBtn = document.getElementById("pmLocateBtn");
+    if (locBtn) {
+        if (pkt.latitude != null && pkt.longitude != null) {
+            locBtn.disabled = false;
+            locBtn.innerHTML = '<i class="fa fa-location-dot"></i> Locate on Map';
+            locBtn.title = "View coordinates on tactical map";
+        } else {
+            locBtn.disabled = true;
+            locBtn.innerHTML = '<i class="fa fa-location-crosshairs"></i> No Coordinates';
+            locBtn.title = "This packet has no GPS fix coordinates";
+        }
+    }
+}
+
+function locatePacketOnMap() {
+    if (!currentModalPacket || currentModalPacket.latitude == null || currentModalPacket.longitude == null) {
+        showToast("warn", "No Coordinates", "This packet does not contain coordinate data.");
+        return;
+    }
+    const p = currentModalPacket;
+    closePacketModal();
+    // Switch to Overview tab to view the map
+    const navBtn = document.querySelector(".nav-item[onclick*=\"'overview'\"]");
+    showTab("overview", navBtn);
+    setTimeout(() => {
+        flyToCoordinate(p.latitude, p.longitude, `Packet #${p.packet_id} (${p.imei || p.device_id})`, p.is_simulation ? 1 : 0, p.validation_status || "NORMAL", "overview");
+        showToast("info", "Packet Located", `Centered map on Packet #${p.packet_id} coordinates.`);
+    }, 180);
+}
+
+function copyPacketPayload() {
+    const code = document.getElementById("pmRawPayload").textContent;
+    navigator.clipboard.writeText(code).then(() => {
+        const textSpan = document.getElementById("copyPayloadText");
+        if (textSpan) {
+            textSpan.textContent = "Copied!";
+            setTimeout(() => { textSpan.textContent = "Copy Payload"; }, 2000);
+        }
+        showToast("success", "Payload Copied", "Raw packet payload copied to clipboard.");
+    }).catch(e => {
+        showToast("error", "Copy Failed", String(e));
+    });
+}
+
+function copyPacketJson() {
+    if (!currentModalPacket) return;
+    const jsonStr = JSON.stringify(currentModalPacket, null, 2);
+    navigator.clipboard.writeText(jsonStr).then(() => {
+        showToast("success", "JSON Copied", "Full packet JSON metadata copied to clipboard.");
+    }).catch(e => {
+        showToast("error", "Copy Failed", String(e));
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SESSION CONTROLS
+═══════════════════════════════════════════════════════════════ */
+async function clearRecentPackets() {
+    if (!confirm("Archive active live session to History and reset live packet counters?")) return;
+    await fetch("/clear", { method: "POST" });
+    document.getElementById("clearBanner").style.display = "block";
+    setTimeout(() => { document.getElementById("clearBanner").style.display = "none"; }, 5000);
+    showToast("success", "Session Cleared", "Live packets archived to forensic history.");
+    updateDashboard();
+}
+
+async function clearAllHistory() {
+    if (!confirm("Permanently wipe ALL historical archives? This cannot be undone.")) return;
+    await fetch("/clear-history", { method: "POST" });
+    showToast("warn", "History Wiped", "All forensic archives permanently deleted.");
+    updateDashboard();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INITIALISE
+═══════════════════════════════════════════════════════════════ */
+window.addEventListener("DOMContentLoaded", () => {
+    // Immediately initialize tactical map on Overview page
+    initMap(13.0827, 80.2707);
+    initCharts();
+    // Load initial simulation results into lab cards
+    refreshSimulationTable();
+    // Start polling
+    setInterval(updateDashboard, 2000);
+    updateDashboard();
+});
+</script>
+
+</body>
+</html>

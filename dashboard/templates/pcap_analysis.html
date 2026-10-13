@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>TrackGuard PCAP Analysis</title>
+
+    <style>
+
+        body {
+            margin: 0;
+            padding: 30px;
+
+            font-family:
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                Arial,
+                sans-serif;
+
+            background: #f4f6f8;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: auto;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            margin-bottom: 20px;
+
+            border-radius: 12px;
+
+            box-shadow:
+                0 2px 8px
+                rgba(0,0,0,0.08);
+        }
+
+        h1 {
+            margin-top: 0;
+        }
+
+        .stats {
+            display: grid;
+
+            grid-template-columns:
+                repeat(4, 1fr);
+
+            gap: 15px;
+        }
+
+        .stat {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .stat strong {
+            display: block;
+            font-size: 28px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            border-bottom:
+                1px solid #ddd;
+
+            text-align: left;
+        }
+
+        th {
+            background: #f1f5f9;
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+
+            padding: 15px;
+
+            border-radius: 8px;
+        }
+
+        a {
+            display: inline-block;
+
+            padding: 10px 15px;
+
+            background: #2563eb;
+
+            color: white;
+
+            text-decoration: none;
+
+            border-radius: 7px;
+        }
+
+        @media(max-width:700px) {
+
+            .stats {
+                grid-template-columns: 1fr 1fr;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+<div class="container">
+
+    <div class="card">
+
+        <h1>
+            🦈 TrackGuard PCAP Analysis
+        </h1>
+
+        <p>
+            File:
+            <strong>
+                {{ result.filename }}
+            </strong>
+        </p>
+
+        <a href="/">
+            ← Back to Dashboard
+        </a>
+
+    </div>
+
+
+    {% if result.error %}
+
+    <div class="card">
+
+        <div class="error">
+
+            <strong>
+                PCAP Analysis Error
+            </strong>
+
+            <p>
+                {{ result.error }}
+            </p>
+
+        </div>
+
+    </div>
+
+    {% endif %}
+
+
+    <div class="card">
+
+        <h2>
+            Packet Statistics
+        </h2>
+
+        <div class="stats">
+
+            <div class="stat">
+
+                Total Packets
+
+                <strong>
+                    {{ result.total_packets }}
+                </strong>
+
+            </div>
+
+
+            <div class="stat">
+
+                TCP Packets
+
+                <strong>
+                    {{ result.tcp_packets }}
+                </strong>
+
+            </div>
+
+
+            <div class="stat">
+
+                UDP Packets
+
+                <strong>
+                    {{ result.udp_packets }}
+                </strong>
+
+            </div>
+
+
+            <div class="stat">
+
+                Payload Packets
+
+                <strong>
+                    {{ result.payload_packets }}
+                </strong>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="card">
+
+        <h2>
+            GPS / Application Payloads
+        </h2>
+
+        {% if result.gps_packets %}
+
+        <table>
+
+            <thead>
+
+                <tr>
+
+                    <th>
+                        #
+                    </th>
+
+                    <th>
+                        Payload
+                    </th>
+
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                {% for packet in result.gps_packets %}
+
+                <tr>
+
+                    <td>
+                        {{ loop.index }}
+                    </td>
+
+                    <td>
+                        {{ packet }}
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+        {% else %}
+
+        <p>
+            No TrackGuard GPS application payloads
+            were identified in this PCAP.
+        </p>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+</body>
+
+</html>
